@@ -364,3 +364,11 @@ img.pubfig {
 .scene > img#ovl { transform-origin: 50% 50%; will-change: transform; }
 /* Sunumda projeksiyondan okunabilsin diye bindirme kipi daha büyük. */
 .checkgrid.overlay .scene { max-width: 760px; }
+
+/* Katman sırası. Scene kurucusu canvas ile svg'yi kabın SONUNA ekliyor, yani
+   DOM sırasında bindirilen fotoğrafın üstüne düşüyorlar; canvas opak olduğu için
+   fotoğrafı tamamen gizliyordu. Sıra burada açıkça sabitlendi. */
+.scene canvas { z-index: 1; }
+.scene > img#ovl { z-index: 2; }
+.scene svg { z-index: 3; }
+.scene .hintbar, .scene .viewlabel { z-index: 4; }

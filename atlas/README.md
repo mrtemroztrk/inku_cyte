@@ -68,6 +68,19 @@ demonstrate.
 Only XY placement is testable this way. The z axis carries no micron scale, so
 there is nothing to register it against.
 
+What the sweep shows on real data: the bright cores of the stain are covered by
+voxels, and the diffuse halo around each core is not — that halo is the
+out-of-focus light a 4× objective spreads over neighbouring planes, and it falls
+below threshold. So the overlay tests two things at once: that the reconstruction
+is in the right place, and that the threshold is selecting cores rather than haze.
+
+> A note on how this check is verified. The overlay is drawn on top of an opaque
+> WebGL canvas, and the scene appends that canvas last, so without an explicit
+> stacking order the photograph is hidden completely — and a comparison of "before
+> and after" then shows two identical pictures, which looks like perfect
+> registration and is in fact nothing at all. `atlas/shoot.py` now refuses to write
+> an animation whose frames are identical, which is what caught it.
+
 ## Moving around in 3D
 
 Blender conventions:

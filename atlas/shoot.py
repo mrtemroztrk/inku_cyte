@@ -55,7 +55,8 @@ def shot(page: Path, out: Path, width: int = 1400, height: int = 1400,
 
 def frames_gif(page: Path, out: Path, states: list[str], width: int, height: int,
                duration: int = 320, wait_ms: int = 9000,
-               crop: tuple[int, int, int, int] | None = None) -> Path:
+               crop: tuple[int, int, int, int] | None = None,
+               max_w: int = 720) -> Path:
     """Render one screenshot per state and write them out as an animated GIF.
 
     `crop` keeps only the part of the page worth animating — a README animation
@@ -68,13 +69,36 @@ def frames_gif(page: Path, out: Path, states: list[str], width: int, height: int
     for i, st in enumerate(states):
         p = shot(page, tmp / f"f{i:03d}.png", width, height, wait_ms, st)
         im = Image.open(p).convert("RGB")
-        imgs.append(im.crop(crop) if crop else im)
+        if crop:
+            im = im.crop(crop)
+        # Shot larger than needed and scaled down: a README animation is read at
+        # a few hundred pixels wide, and downsampling costs far fewer bytes than
+        # a palette that has to carry the noise of a full-resolution dark scene.
+        if im.width > max_w:
+            im = im.resize((max_w, round(im.height * max_w / im.width)),
+                           Image.LANCZOS)
+        imgs.append(im)
         print(f"  frame {i + 1}/{len(states)}", flush=True)
     out.parent.mkdir(parents=True, exist_ok=True)
-    # A 256-colour adaptive palette keeps the dark scene from banding.
-    pal = [im.convert("P", palette=Image.ADAPTIVE, colors=200) for im in imgs]
+    # Consecutive identical frames are dropped here rather than left for the GIF
+    # writer to merge silently — otherwise the frame-count check below cannot
+    # tell a deliberate hold from an animation that never moved.
+    kept = [imgs[0]]
+    for im in imgs[1:]:
+        if im.tobytes() != kept[-1].tobytes():
+            kept.append(im)
+    if len(kept) < 2:
+        raise SystemExit("every frame is identical — the page did not respond to "
+                         "the shoot hook, so there is nothing to animate")
+    pal = [im.convert("P", palette=Image.ADAPTIVE, colors=160) for im in kept]
+    # optimize=True benzer kareleri birleştirip animasyonu tek kareye
+    # indirebiliyor; burada her kare korunmak zorunda.
     pal[0].save(out, save_all=True, append_images=pal[1:], duration=duration,
-                loop=0, optimize=True, disposal=2)
+                loop=0, optimize=False, disposal=1)
+    from PIL import ImageSequence
+    n = sum(1 for _ in ImageSequence.Iterator(Image.open(out)))
+    if n != len(pal):
+        raise SystemExit(f"GIF wrote {n} frames, expected {len(pal)}")
     for im in imgs:
         im.close()
     shutil.rmtree(tmp, ignore_errors=True)
@@ -112,10 +136,9 @@ def gif_overlay(page: Path, out: Path) -> Path:
     This is the registration proof: if the voxels were displaced relative to the
     stain, the sweep would show two offset copies of the same pattern instead of
     one that fades in place."""
-    up = list(range(0, 101, 10))
-    states = [f"SHOOT.z(9);SHOOT.overlay(true,{m})" for m in up + up[::-1][1:]]
-    return frames_gif(page, out, states, 1100, 1300, duration=200,
-                      crop=(300, 380, 860, 940))
+    states = [f"SHOOT.z(9);SHOOT.overlay(true,{m})" for m in range(0, 101, 10)]
+    return frames_gif(page, out, states, 1320, 1400, duration=260,
+                      crop=(250, 330, 1090, 1170), max_w=560)
 
 
 RECIPES = {"slice": gif_slice, "orbit": gif_orbit, "zscan": gif_zscan,
