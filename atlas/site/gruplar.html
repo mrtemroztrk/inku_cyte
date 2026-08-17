@@ -1,0 +1,1015 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grup karşılaştırmaları — inc_tests atlası</title>
+<style>/* Atlas — bilimsel sunum dili.
+   Kural: hiçbir şey yer değiştirmez. Her figürün yüksekliği sabit, her sayı
+   tabular-nums, her SVG viewBox'lı. Zaman kaydırıcısı oynatılırken sayfanın
+   akışı kıpırdamaz — kayan figür okunamaz figürdür. */
+
+:root {
+  --surface: #fcfcfb;
+  --scene: #0e1013;
+  --ink: #0b0b0b;
+  --ink2: #52514e;
+  --muted: #8a8983;
+  --rule: #e6e5e1;
+  --rule2: #d3d2cd;
+  --green: #1baf7a;
+  --orange: #eb6834;
+  --nir: #4a3aa7;
+  --terr: #b8b7b2;
+  --maxw: 1180px;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 28px 96px; }
+
+a { color: inherit; }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+/* ------------------------------------------------------------------ başlık */
+header.top {
+  border-bottom: 1px solid var(--rule2);
+  margin-bottom: 26px;
+  padding: 22px 0 14px;
+  display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+}
+header.top .well {
+  font-size: 27px; font-weight: 600; letter-spacing: -.015em; line-height: 1;
+}
+header.top .cond { color: var(--ink2); font-size: 14px; }
+header.top .cond b { font-weight: 600; color: var(--ink); }
+header.top .spacer { margin-left: auto; }
+header.top nav { font-size: 13px; color: var(--ink2); display: flex; gap: 14px; }
+header.top nav a { text-decoration: none; border-bottom: 1px solid var(--rule2); }
+header.top nav a:hover { border-color: var(--ink2); }
+
+.flag {
+  display: inline-block; padding: 1px 7px; border-radius: 2px; font-size: 11.5px;
+  border: 1px solid var(--rule2); color: var(--ink2); background: #fff;
+}
+.flag.warn { border-color: #eda100; color: #7a5400; background: #fffaf0; }
+
+/* -------------------------------------------------------------- bölüm başı */
+section { margin: 0 0 44px; }
+h2.sec {
+  font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 4px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--rule);
+}
+p.lead { margin: 10px 0 18px; color: var(--ink2); max-width: 78ch; font-size: 13.5px; }
+
+/* ------------------------------------------------------------------ 3B kat */
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) 268px; gap: 24px; align-items: start; }
+
+.scene {
+  position: relative; background: var(--scene); border-radius: 3px;
+  aspect-ratio: 16 / 10; overflow: hidden; cursor: grab;
+  touch-action: none;
+}
+.scene.drag { cursor: grabbing; }
+.scene canvas, .scene svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.scene svg { pointer-events: none; }
+.scene .hintbar {
+  position: absolute; left: 12px; bottom: 10px; color: #7d8694; font-size: 11.5px;
+  pointer-events: none; letter-spacing: .01em;
+}
+
+/* denetimler: üç şey var, üçü de gerekli */
+.ctl { margin-top: 12px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.ctl .time { display: flex; align-items: center; gap: 11px; flex: 1 1 340px; min-width: 260px; }
+.ctl input[type=range] { flex: 1; min-width: 0; accent-color: #2a78d6; }
+.ctl .tlabel { font-size: 13px; color: var(--ink2); white-space: nowrap; min-width: 132px; }
+.ctl .tlabel b { color: var(--ink); font-weight: 600; }
+
+.chips { display: flex; gap: 7px; flex-wrap: wrap; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px;
+  border: 1px solid var(--rule2); background: #fff; border-radius: 2px;
+  padding: 3px 9px 3px 7px; cursor: pointer; color: var(--ink2); user-select: none;
+}
+.chip .sw { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.chip[aria-pressed="false"] { opacity: .42; }
+.chip:hover { border-color: var(--muted); }
+
+button.play {
+  border: 1px solid var(--rule2); background: #fff; border-radius: 2px;
+  width: 28px; height: 24px; cursor: pointer; color: var(--ink2); font-size: 11px;
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+}
+button.play:hover { border-color: var(--muted); }
+
+/* --------------------------------------------------------------- sayı kutu */
+.readout { border-top: 2px solid var(--ink); padding-top: 10px; }
+.readout h3 {
+  font-size: 11.5px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 12px;
+}
+.q { margin-bottom: 15px; }
+.q .lbl {
+  font-size: 12px; color: var(--ink2); display: flex; align-items: center; gap: 6px;
+  margin-bottom: 1px;
+}
+.q .sw { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.q .val { font-size: 21px; font-weight: 600; letter-spacing: -.02em; line-height: 1.15; }
+.q .val .u { font-size: 12.5px; font-weight: 400; color: var(--ink2); margin-left: 3px;
+             letter-spacing: 0; }
+.q .sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.q.approx .val::before { content: "≈ "; color: var(--ink2); font-weight: 400; }
+
+.readout .note {
+  border-top: 1px solid var(--rule); padding-top: 9px; margin-top: 4px;
+  font-size: 11.5px; color: var(--muted); line-height: 1.45;
+}
+
+/* ------------------------------------------------------------------ figür */
+.figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px 28px; }
+figure { margin: 0; min-width: 0; }
+figure.wide { grid-column: 1 / -1; }
+
+figcaption { margin-top: 9px; font-size: 12px; color: var(--ink2); line-height: 1.5; }
+figcaption .ttl { display: block; color: var(--ink); font-weight: 600; font-size: 12.5px;
+                  margin-bottom: 2px; }
+
+.fighead { display: flex; align-items: baseline; gap: 10px; margin-bottom: 7px; }
+.fighead h3 { margin: 0; font-size: 13.5px; font-weight: 600; letter-spacing: -.005em; }
+.fighead .tools { margin-left: auto; display: flex; gap: 9px; }
+.fighead .tools button {
+  border: 0; background: none; padding: 0; cursor: pointer; font: inherit;
+  font-size: 11.5px; color: var(--muted); border-bottom: 1px solid var(--rule2);
+}
+.fighead .tools button:hover { color: var(--ink2); border-color: var(--ink2); }
+
+.plot { width: 100%; display: block; }
+.plot text { font-family: inherit; }
+
+/* tablo görünümü — renk tek başına taşıyıcı değil */
+.tbl { display: none; margin-top: 10px; overflow-x: auto; }
+.tbl.on { display: block; }
+table.data { border-collapse: collapse; font-size: 11.5px; white-space: nowrap; }
+table.data th, table.data td { padding: 3px 10px 3px 0; text-align: right; }
+table.data th:first-child, table.data td:first-child { text-align: left; }
+table.data thead th { border-bottom: 1px solid var(--rule2); color: var(--ink2); font-weight: 600; }
+table.data tbody tr + tr td { border-top: 1px solid var(--rule); }
+
+/* ------------------------------------------------------------------ yöntem */
+details.method { border-top: 1px solid var(--rule2); padding-top: 14px; }
+details.method > summary {
+  cursor: pointer; font-size: 12px; font-weight: 600; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--muted); list-style: none;
+}
+details.method > summary::-webkit-details-marker { display: none; }
+details.method > summary::before { content: "▸ "; }
+details.method[open] > summary::before { content: "▾ "; }
+details.method .body {
+  margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px 34px; font-size: 12.5px; color: var(--ink2); line-height: 1.6;
+}
+details.method h4 { margin: 0 0 5px; font-size: 12.5px; color: var(--ink); font-weight: 600; }
+details.method p { margin: 0 0 9px; }
+details.method code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; }
+
+/* ------------------------------------------------------------------- plaka */
+.plate { display: grid; grid-template-columns: 22px repeat(12, minmax(0, 1fr)); gap: 3px; }
+.plate .hd { font-size: 11px; color: var(--muted); text-align: center; line-height: 20px; }
+.plate .rw { font-size: 11px; color: var(--muted); text-align: center; }
+.wellbox {
+  aspect-ratio: 1; border-radius: 2px; position: relative; display: block;
+  text-decoration: none; border: 1px solid transparent; min-width: 0;
+}
+.wellbox:hover { outline: 2px solid var(--ink); outline-offset: 1px; z-index: 2; }
+.wellbox.na { background: repeating-linear-gradient(45deg, #f2f1ee 0 4px, #fff 4px 8px); }
+.wellbox.ex::after {
+  content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(45deg, rgba(0,0,0,.28) 0 2px, transparent 2px 5px);
+}
+.wellbox .tc {
+  position: absolute; right: 2px; top: 2px; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--ink); opacity: .55;
+}
+.platebar { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+.platebar label { font-size: 12.5px; color: var(--ink2); }
+.platebar select {
+  font: inherit; font-size: 13px; color: var(--ink); background: #fff;
+  border: 1px solid var(--rule2); border-radius: 2px; padding: 3px 7px;
+}
+.scalestrip { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); }
+.scalestrip .bar { width: 108px; height: 9px; border-radius: 1px; }
+
+#tip {
+  position: fixed; pointer-events: none; z-index: 9; background: #fff;
+  border: 1px solid var(--rule2); border-radius: 2px; padding: 7px 10px;
+  font-size: 12px; line-height: 1.5; box-shadow: 0 2px 10px rgba(0,0,0,.09);
+  max-width: 260px;
+}
+#tip .k { color: var(--muted); }
+#tip b { font-weight: 600; }
+
+@media (max-width: 940px) {
+  .stage { grid-template-columns: minmax(0, 1fr); }
+  .figs, details.method .body { grid-template-columns: minmax(0, 1fr); }
+  .wrap { padding: 0 18px 72px; }
+}
+
+@media print {
+  .ctl, .fighead .tools, header.top nav { display: none; }
+  .wrap { max-width: none; }
+  figure, section { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <span class="well">Grup karşılaştırmaları</span>
+  <span class="cond">84 kuyu · 4 kuyu QC dışı · gün 4</span>
+  <span class="spacer"></span>
+  <nav><a href="index.html">← plaka</a></nav>
+</header>
+
+<section>
+  <h2 class="sec">Ne karşılaştırılıyor</h2>
+  <p class="lead">Kuyu sayfaları tek bir kuyuyu uzamsal olarak açar; bu sayfa
+  kuyuları gruplar. Sayılar aynı ölçümden gelir — burada bir noktanın değeri, o
+  kuyunun sayfasında yazan değerin aynısıdır. T hücresi sayıları
+  90.8 µm²/hücre kalibrasyonuna dayanır; tümör hücre olarak
+  sayılmaz. Her figürün SVG'si ve arkasındaki tablo indirilebilir.</p>
+  <div class="figs">
+      <figure class="wide">
+        <div class="fighead">
+          <h3>T hücresi zenginleşmesi — ko-kültüre göre</h3>
+          <div class="tools">
+            <button data-tbl="enrich_coc">tablo</button>
+            <button data-svg="enrich_coc">SVG</button>
+          </div>
+        </div>
+        <div id="fig_enrich_coc"></div>
+        <div class="tbl" id="tbl_enrich_coc"></div>
+        <figcaption>Zenginleşme = organoid teritoryasındaki T sinyali yoğunluğu / dışındaki yoğunluk. 1,0 rastgele dağılım, &lt;1 dışlanma, &gt;1 zenginleşme. Ham yüzde kullanılmıyor: teritorya bir kuyuda alanın %6'sını, başka birinde %59'unu kaplıyor, orada rastgele dağılmış hücreler bile &ldquo;çoğu içeride&rdquo; çıkardı. Eksen logaritmik — çizilen bir oran. Her nokta bir kuyu, kalın çizgi medyan, gri şerit medyanın önyükleme %95 güven aralığı (2000 tekrar). Kutu grafiği yok: koşul başına kuyu sayısı 4–17, o örneklemde bir kutu grafiği çeyrekleri uydurur. Testler Mann-Whitney U; etki büyüklüğü Mann-Whitney AUC ve Cliff δ; p-değerleri Benjamini-Hochberg ile düzeltilir (tabloda <code>q</code>).</figcaption>
+      </figure>
+      <figure class="wide">
+        <div class="fighead">
+          <h3>T hücresi zenginleşmesi — bileşiğe göre</h3>
+          <div class="tools">
+            <button data-tbl="enrich_cmp">tablo</button>
+            <button data-svg="enrich_cmp">SVG</button>
+          </div>
+        </div>
+        <div id="fig_enrich_cmp"></div>
+        <div class="tbl" id="tbl_enrich_cmp"></div>
+        <figcaption>Aynı ölçü, KRAS ve SRC inhibitörü koşullarına göre. Doz bilgisi etikette. Dye kontrol kuyuları belirgin biçimde odak dışı ve seyrek olduğu için morfoloji karşılaştırmasına girmiyor. Her nokta bir kuyu, kalın çizgi medyan, gri şerit medyanın önyükleme %95 güven aralığı (2000 tekrar). Kutu grafiği yok: koşul başına kuyu sayısı 4–17, o örneklemde bir kutu grafiği çeyrekleri uydurur. Testler Mann-Whitney U; etki büyüklüğü Mann-Whitney AUC ve Cliff δ; p-değerleri Benjamini-Hochberg ile düzeltilir (tabloda <code>q</code>).</figcaption>
+      </figure>
+      <figure class="wide">
+        <div class="fighead">
+          <h3>T hücresi sinyalinin organoid kenarına uzaklığı</h3>
+          <div class="tools">
+            <button data-tbl="dist">tablo</button>
+            <button data-svg="dist">SVG</button>
+          </div>
+        </div>
+        <div id="fig_dist"></div>
+        <div class="tbl" id="tbl_dist"></div>
+        <figcaption>İşaretli uzaklığın medyanı: negatif = teritorya içinde, pozitif = dışında, 0 = kenarda. Zenginleşmeden bağımsız bir ölçü — zenginleşme &ldquo;içeride mi&rdquo;, bu &ldquo;ne kadar içeride&rdquo; sorusunu yanıtlar. Her nokta bir kuyu, kalın çizgi medyan, gri şerit medyanın önyükleme %95 güven aralığı (2000 tekrar). Kutu grafiği yok: koşul başına kuyu sayısı 4–17, o örneklemde bir kutu grafiği çeyrekleri uydurur. Testler Mann-Whitney U; etki büyüklüğü Mann-Whitney AUC ve Cliff δ; p-değerleri Benjamini-Hochberg ile düzeltilir (tabloda <code>q</code>).</figcaption>
+      </figure>
+      <figure class="wide">
+        <div class="fighead">
+          <h3>Organoid kütlesinin zamanla değişimi</h3>
+          <div class="tools">
+            <button data-tbl="growth">tablo</button>
+            <button data-svg="growth">SVG</button>
+          </div>
+        </div>
+        <div id="fig_growth"></div>
+        <div class="tbl" id="tbl_growth"></div>
+        <figcaption>Brightfield teritoryası, boyadan bağımsız. İnce çizgiler tek tek kuyular, kalın çizgi grup medyanı. Ortak birim olduğu için paneller ortak y eksenini paylaşıyor ve doğrudan karşılaştırılabilir.</figcaption>
+      </figure>
+      <figure class="wide">
+        <div class="fighead">
+          <h3>T hücresi eklemek ölü hücre sinyalini değiştiriyor mu</h3>
+          <div class="tools">
+            <button data-tbl="dead">tablo</button>
+            <button data-svg="dead">SVG</button>
+          </div>
+        </div>
+        <div id="fig_dead"></div>
+        <div class="tbl" id="tbl_dead"></div>
+        <figcaption>Ko-kültür sabit tutularak eşleştirilmiş karşılaştırma: ko-kültürün kendisi hem ölümü hem T dağılımını bağımsız olarak etkilediği için T'li ve T'siz kuyuları doğrudan havuzlamak iki etkiyi karıştırırdı. Kesikli çizgi iki medyanı birleştirir. Yön 2/4 ko-kültürde aynı; işaret testi p=1.0. Her nokta bir kuyu, kalın çizgi medyan, gri şerit medyanın önyükleme %95 güven aralığı (2000 tekrar). Kutu grafiği yok: koşul başına kuyu sayısı 4–17, o örneklemde bir kutu grafiği çeyrekleri uydurur. Testler Mann-Whitney U; etki büyüklüğü Mann-Whitney AUC ve Cliff δ; p-değerleri Benjamini-Hochberg ile düzeltilir (tabloda <code>q</code>).</figcaption>
+      </figure>
+      <figure class="wide">
+        <div class="fighead">
+          <h3>T hücresi eklemek tümör sinyalini değiştiriyor mu</h3>
+          <div class="tools">
+            <button data-tbl="tumour">tablo</button>
+            <button data-svg="tumour">SVG</button>
+          </div>
+        </div>
+        <div id="fig_tumour"></div>
+        <div class="tbl" id="tbl_tumour"></div>
+        <figcaption>Aynı eşleştirilmiş tasarım, tümör sinyal alanı üzerinde. Bu ölçü tümör <i>hücre sayısı</i> değil: green kanalı organoidlerin bir kısmını boyamıyor, dolayısıyla alan bir alt sınırdır ve boyanma oranı gruplar arasında değişirse fark boyamadan da gelebilir. Ölü hücre figürüyle birlikte okunmalı. Her nokta bir kuyu, kalın çizgi medyan, gri şerit medyanın önyükleme %95 güven aralığı (2000 tekrar). Kutu grafiği yok: koşul başına kuyu sayısı 4–17, o örneklemde bir kutu grafiği çeyrekleri uydurur. Testler Mann-Whitney U; etki büyüklüğü Mann-Whitney AUC ve Cliff δ; p-değerleri Benjamini-Hochberg ile düzeltilir (tabloda <code>q</code>).</figcaption>
+      </figure></div>
+</section>
+
+</div>
+<script>window.GROUPS={"calibration":{"um_per_px":2.798,"field_um2":11463874.3,"tcell":{"accepted":true,"um2_per_cell":90.8,"ci95":[82.8,98.9],"cv":0.197,"eq_diam_um":10.75,"n_wells":27,"n_seeded":5000,"by_coculture":{"PDA":{"n_wells":7,"um2_per_cell":93.9,"eq_diam_um":10.93},"PDA+CAF":{"n_wells":7,"um2_per_cell":101.8,"eq_diam_um":11.39},"PDA+CAF+MAC":{"n_wells":7,"um2_per_cell":84.1,"eq_diam_um":10.35},"PDA+MAC":{"n_wells":6,"um2_per_cell":88.8,"eq_diam_um":10.63}},"basis":"MIP alanı (z boyunca maksimum projeksiyon maskesi)"},"tumour":{"accepted":false,"um2_per_cell":62.7,"eq_diam_um":8.94,"n_seeded":2000,"reason":"eşdeğer çap 8.9 µm — bir T hücresinden (10.7 µm) küçük, dolayısıyla imkânsız; green kanalı organoidlerin çoğunu boyamıyor ve eksik sayıyor"},"object_counting":{"accepted":false,"delta_objects":1155,"expected":5000,"cells_per_object":4.33,"reason":"T'li ve T'siz kuyular arasındaki nesne farkı 1155, beklenen 5000; her bağlı bileşen ortalama 4.3 hücre içeriyor"}},"n_wells":84,"n_excluded":4,"enrich_coculture":{"groups":[{"label":"PDA","n":7,"values":[0.892,0.995,1.55,0.973,1.087,1.086,1.012],"wells":["B01","B05","C05","D01","E01","F01","G01"],"median":1.012,"ci":[0.973,1.087]},{"label":"PDA+CAF","n":7,"values":[0.56,0.564,1.34,1.496,0.749,0.673,0.551],"wells":["B02","B06","C06","E06","F02","G02","G06"],"median":0.673,"ci":[0.56,1.34]},{"label":"PDA+MAC","n":6,"values":[1.139,0.787,0.481,1.134,0.538,0.505],"wells":["A07","B03","C03","D07","F03","G03"],"median":0.6625,"ci":[0.493,1.1365]},{"label":"PDA+CAF+MAC","n":7,"values":[0.731,0.495,1.244,1.05,0.731,0.213,0.239],"wells":["A08","B04","C04","D04","D08","F04","G04"],"median":0.731,"ci":[0.239,1.05]}],"tests":[{"a":"PDA","b":"PDA+CAF","n_a":7,"n_b":7,"auc":0.755,"delta":0.51,"p":0.12821,"q":0.38462},{"a":"PDA","b":"PDA+MAC","n_a":7,"n_b":6,"auc":0.714,"delta":0.429,"p":0.23427,"q":0.46853},{"a":"PDA","b":"PDA+CAF+MAC","n_a":7,"n_b":7,"auc":0.796,"delta":0.592,"p":0.07332,"q":0.38462},{"a":"PDA+CAF","b":"PDA+MAC","n_a":7,"n_b":6,"auc":0.643,"delta":0.286,"p":0.44522,"q":0.53427},{"a":"PDA+CAF","b":"PDA+CAF+MAC","n_a":7,"n_b":7,"auc":0.633,"delta":0.265,"p":0.44279,"q":0.53427},{"a":"PDA+MAC","b":"PDA+CAF+MAC","n_a":6,"n_b":7,"auc":0.595,"delta":0.19,"p":0.61659,"q":0.61659}]},"enrich_compound":{"groups":[{"label":"control","n":4,"values":[0.892,0.56,0.787,0.495],"wells":["B01","B02","B03","B04"],"median":0.6735,"ci":[0.495,0.892]},{"label":"kras low","n":4,"values":[0.481,1.244,0.973,0.749],"wells":["C03","C04","D01","F02"],"median":0.861,"ci":[0.481,1.244]},{"label":"kras high","n":3,"values":[1.05,1.087,0.673],"wells":["D04","E01","G02"],"median":1.05,"ci":[0.673,1.087]},{"label":"Src low","n":4,"values":[0.564,1.134,0.731,1.086],"wells":["B06","D07","D08","F01"],"median":0.9085,"ci":[0.564,1.134]},{"label":"Src high","n":4,"values":[1.34,0.538,0.213,1.012],"wells":["C06","F03","F04","G01"],"median":0.775,"ci":[0.213,1.34]},{"label":"low kras+Src","n":4,"values":[0.995,0.505,0.239,0.551],"wells":["B05","G03","G04","G06"],"median":0.528,"ci":[0.239,0.995]},{"label":"high kras+Src","n":4,"values":[1.139,0.731,1.55,1.496],"wells":["A07","A08","C05","E06"],"median":1.3175,"ci":[0.731,1.55]}],"tests":[{"a":"control","b":"kras low","n_a":4,"n_b":4,"auc":0.375,"delta":-0.25,"p":0.68571,"q":0.9},{"a":"control","b":"kras high","n_a":4,"n_b":3,"auc":0.167,"delta":-0.667,"p":0.22857,"q":0.6},{"a":"control","b":"Src low","n_a":4,"n_b":4,"auc":0.25,"delta":-0.5,"p":0.34286,"q":0.72},{"a":"control","b":"Src high","n_a":4,"n_b":4,"auc":0.438,"delta":-0.125,"p":0.88571,"q":1.0},{"a":"control","b":"low kras+Src","n_a":4,"n_b":4,"auc":0.625,"delta":0.25,"p":0.68571,"q":0.9},{"a":"control","b":"high kras+Src","n_a":4,"n_b":4,"auc":0.125,"delta":-0.75,"p":0.11429,"q":0.6},{"a":"kras low","b":"kras high","n_a":4,"n_b":3,"auc":0.417,"delta":-0.167,"p":0.85714,"q":1.0},{"a":"kras low","b":"Src low","n_a":4,"n_b":4,"auc":0.5,"delta":0.0,"p":1.0,"q":1.0},{"a":"kras low","b":"Src high","n_a":4,"n_b":4,"auc":0.5,"delta":0.0,"p":1.0,"q":1.0},{"a":"kras low","b":"low kras+Src","n_a":4,"n_b":4,"auc":0.688,"delta":0.375,"p":0.48571,"q":0.9},{"a":"kras low","b":"high kras+Src","n_a":4,"n_b":4,"auc":0.25,"delta":-0.5,"p":0.34286,"q":0.72},{"a":"kras high","b":"Src low","n_a":3,"n_b":4,"auc":0.5,"delta":0.0,"p":1.0,"q":1.0},{"a":"kras high","b":"Src high","n_a":3,"n_b":4,"auc":0.667,"delta":0.333,"p":0.62857,"q":0.9},{"a":"kras high","b":"low kras+Src","n_a":3,"n_b":4,"auc":0.917,"delta":0.833,"p":0.11429,"q":0.6},{"a":"kras high","b":"high kras+Src","n_a":3,"n_b":4,"auc":0.167,"delta":-0.667,"p":0.22857,"q":0.6},{"a":"Src low","b":"Src high","n_a":4,"n_b":4,"auc":0.625,"delta":0.25,"p":0.68571,"q":0.9},{"a":"Src low","b":"low kras+Src","n_a":4,"n_b":4,"auc":0.875,"delta":0.75,"p":0.11429,"q":0.6},{"a":"Src low","b":"high kras+Src","n_a":4,"n_b":4,"auc":0.156,"delta":-0.688,"p":0.14649,"q":0.6},{"a":"Src high","b":"low kras+Src","n_a":4,"n_b":4,"auc":0.625,"delta":0.25,"p":0.68571,"q":0.9},{"a":"Src high","b":"high kras+Src","n_a":4,"n_b":4,"auc":0.188,"delta":-0.625,"p":0.2,"q":0.6},{"a":"low kras+Src","b":"high kras+Src","n_a":4,"n_b":4,"auc":0.062,"delta":-0.875,"p":0.05714,"q":0.6}]},"dist_coculture":{"groups":[{"label":"PDA","n":7,"values":[36.4,21.9,20.2,36.4,39.2,28.0,37.5],"wells":["B01","B05","C05","D01","E01","F01","G01"],"median":36.4,"ci":[21.9,37.5]},{"label":"PDA+CAF","n":7,"values":[11.2,20.2,2.8,11.2,11.2,46.6,40.4],"wells":["B02","B06","C06","E06","F02","G02","G06"],"median":11.2,"ci":[11.2,40.4]},{"label":"PDA+MAC","n":6,"values":[22.4,-257.4,-299.4,30.1,-246.2,-257.4],"wells":["A07","B03","C03","D07","F03","G03"],"median":-251.8,"ci":[-278.4,26.25]},{"label":"PDA+CAF+MAC","n":7,"values":[37.6,45.5,31.9,11.2,70.0,76.4,83.8],"wells":["A08","B04","C04","D04","D08","F04","G04"],"median":45.5,"ci":[31.9,76.4]}],"tests":[{"a":"PDA","b":"PDA+CAF","n_a":7,"n_b":7,"auc":0.704,"delta":0.408,"p":0.22173,"q":0.22173},{"a":"PDA","b":"PDA+MAC","n_a":7,"n_b":6,"auc":0.881,"delta":0.762,"p":0.02639,"q":0.07918},{"a":"PDA","b":"PDA+CAF+MAC","n_a":7,"n_b":7,"auc":0.245,"delta":-0.51,"p":0.12479,"q":0.15713},{"a":"PDA+CAF","b":"PDA+MAC","n_a":7,"n_b":6,"auc":0.762,"delta":0.524,"p":0.13094,"q":0.15713},{"a":"PDA+CAF","b":"PDA+CAF+MAC","n_a":7,"n_b":7,"auc":0.194,"delta":-0.612,"p":0.06101,"q":0.12201},{"a":"PDA+MAC","b":"PDA+CAF+MAC","n_a":6,"n_b":7,"auc":0.048,"delta":-0.905,"p":0.00813,"q":0.0488}]},"growth":{"groups":[{"label":"PDA","n":16,"days":[0.0,0.3458333333333334,0.6791666666666667,1.0,1.3458333333333332,1.6791666666666665,2.0,2.345833333333333,2.6791666666666667,3.0,3.345833333333333,3.6791666666666667,4.0],"median":[0.66705,0.91785,1.19455,1.4818,1.64775,1.77635,1.89435,1.889,1.99185,1.9571,2.0601,2.25915,2.2573],"wells":[{"well":"A01","v":[0.1349,0.1643,0.2433,0.3548,0.4264,0.4529,0.5094,0.5019,0.5588,0.5669,0.6015,0.6334,0.6621]},{"well":"A05","v":[0.3701,0.4431,0.5417,0.6701,0.8233,0.9096,1.0313,1.0878,1.1769,1.3131,1.3576,1.4145,1.5656]},{"well":"B01","v":[0.8214,1.0405,1.4654,1.7652,1.8785,2.0281,2.2479,2.2721,2.4392,2.661,2.5771,2.7011,2.8424]},{"well":"B05","v":[1.3216,1.8171,2.575,2.5948,2.6577,2.5175,2.6648,2.7736,2.9991,3.3167,3.4841,4.0996,4.2607]},{"well":"C01","v":[0.5853,0.7952,0.9737,1.3547,1.563,1.747,1.9788,2.0038,2.2548,2.4831,2.5701,2.6244,2.7075]},{"well":"C05","v":[1.0113,1.2764,1.7323,1.7012,1.8839,1.915,2.0321,2.0483,2.1362,2.1708,2.4424,2.7069,2.869]},{"well":"D01","v":[1.0907,1.3263,1.6876,1.9232,2.0727,2.4492,2.5689,2.4346,2.4848,2.4555,2.5002,2.5118,2.5887]},{"well":"D05","v":[0.4659,0.6207,0.7416,0.8754,0.9967,1.0557,1.0809,1.1265,1.1486,1.2418,1.3534,1.4807,1.788]},{"well":"E01","v":[0.8626,1.1586,1.5985,1.8069,1.7867,1.8057,1.861,1.7964,1.9151,1.8518,1.9483,2.2866,2.2485]},{"well":"E05","v":[0.2664,0.4148,0.5026,0.7333,0.8395,0.8935,1.2396,1.1738,1.4213,1.2958,1.3616,1.5247,1.6943]},{"well":"F01","v":[0.8061,1.1368,1.635,1.9068,2.0133,2.342,2.5161,2.4285,2.5164,2.6186,2.7627,3.1378,2.9368]},{"well":"F05","v":[0.2832,0.3437,0.4492,0.5412,0.7142,0.804,0.8843,0.976,0.9799,1.0156,1.108,1.1535,1.252]},{"well":"G01","v":[0.7488,1.1571,1.4154,1.6935,2.1606,2.2242,2.3028,2.4477,2.5275,2.6945,2.6668,2.8094,2.7902]},{"well":"G05","v":[1.4119,1.4756,1.5334,1.6089,1.7325,1.8588,1.9277,1.9816,2.0686,2.0624,2.1719,2.2317,2.2661]},{"well":"H01","v":[0.2243,0.2901,0.3894,0.4505,0.5351,0.6034,0.646,0.7468,0.7962,0.8668,0.8851,0.9503,0.9891]},{"well":"H05","v":[0.369,0.4811,0.5832,0.6527,0.8069,0.8192,0.8785,0.8964,0.9371,0.9908,1.0761,1.0512,1.1216]}]},{"label":"PDA+CAF","n":22,"days":[0.0,0.3458333333333334,0.6791666666666667,1.0,1.3458333333333332,1.6791666666666665,2.0,2.345833333333333,2.6791666666666667,3.0,3.345833333333333,3.6791666666666667,4.0],"median":[2.9321,3.5345,3.3617,3.24005,3.34395,3.7918,4.04525,4.10755,4.2483,4.67325,4.99595,4.83795,4.32465],"wells":[{"well":"A02","v":[3.9894,4.1098,6.6023,6.0798,5.6518,5.3692,5.1097,4.9675,4.9687,5.2731,5.4987,5.8091,6.361]},{"well":"A06","v":[3.6018,4.4568,3.2173,3.4504,6.7612,4.3929,6.671,7.0621,6.9736,7.2822,7.1393,7.3122,6.8484]},{"well":"B02","v":[3.9974,4.8303,5.5454,5.1562,4.9595,5.0269,5.0745,5.3386,5.7048,5.8673,5.9498,6.0903,6.8049]},{"well":"B06","v":[4.0566,4.8279,5.6401,7.5421,6.756,6.7692,6.6018,6.2771,6.5582,6.2335,8.2238,5.0057,5.4522]},{"well":"C02","v":[0.9922,1.5367,2.0662,2.4944,2.9333,3.3616,3.5881,3.737,3.9083,4.1736,3.8844,4.4278,4.1411]},{"well":"C06","v":[5.2205,3.8466,4.3542,4.0243,6.823,6.8223,5.0513,5.858,4.909,5.0774,6.5807,5.0625,4.813]},{"well":"C10","v":[0.5459,0.6977,0.889,1.0626,1.2405,1.4541,1.6601,1.941,2.298,2.538,2.8735,3.4719,3.939]},{"well":"D02","v":[0.7415,1.0418,1.2255,1.5925,2.0825,2.232,2.5135,2.5021,2.3161,2.1638,2.6309,3.2447,3.37]},{"well":"D06","v":[4.6706,6.3326,6.6722,5.472,5.6274,5.8164,5.7789,5.6645,5.9195,6.1374,6.1294,7.0158,6.2935]},{"well":"D10","v":[0.6327,0.8231,0.995,1.1898,1.4939,1.6333,1.899,2.1728,2.5741,2.8951,2.6073,2.8705,2.899]},{"well":"E02","v":[1.2813,2.1196,2.2449,2.7493,2.9483,3.3314,3.7454,3.9103,3.8934,4.0448,4.1493,4.1881,4.4965]},{"well":"E06","v":[2.2624,3.2224,3.9414,3.272,3.5129,4.2013,5.278,5.4899,4.3922,4.6533,5.8636,4.6702,3.7819]},{"well":"E10","v":[0.6096,0.7491,0.9703,1.1659,1.4284,1.5763,1.8839,2.2018,2.5774,2.7606,3.1602,3.7147,3.8354]},{"well":"F02","v":[4.7035,5.2714,6.2436,6.419,6.6897,6.6219,7.1454,6.8559,7.0489,6.8044,7.4741,6.7477,5.8332]},{"well":"F06","v":[6.3421,6.8655,6.3134,5.583,4.9657,4.5539,4.3451,4.3048,4.5174,4.7889,5.09,5.6342,6.099]},{"well":"F10","v":[0.1993,0.1906,0.1929,0.1793,0.1745,0.1916,0.1978,0.187,0.1959,0.1909,0.1834,0.1693,0.1812]},{"well":"G02","v":[5.2626,6.4292,6.7549,6.6174,6.2502,5.9487,6.3319,6.5572,6.7394,6.8231,7.1511,6.4644,4.1528]},{"well":"G06","v":[3.6933,3.8648,3.5061,4.4838,6.594,6.3774,6.3267,6.0413,5.58,5.9609,6.3985,6.0102,5.442]},{"well":"G10","v":[0.1423,0.1474,0.1522,0.1325,0.1269,0.1285,0.1262,0.1212,0.1256,0.1104,0.1204,0.1064,0.0983]},{"well":"H02","v":[1.4677,2.073,2.6255,2.1619,2.6288,2.1471,2.7241,2.7186,3.5759,3.9989,3.9577,4.2694,4.1493]},{"well":"H06","v":[4.7312,4.8837,4.1814,3.2081,3.175,3.3823,3.6402,3.6333,4.1044,4.6932,4.9019,7.4619,6.2596]},{"well":"H10","v":[0.0566,0.0524,0.0567,0.0517,0.0541,0.0523,0.0533,0.0606,0.0547,0.0511,0.0466,0.0429,0.046]}]},{"label":"PDA+MAC","n":22,"days":[0.0,0.3458333333333334,0.6791666666666667,1.0,1.3458333333333332,1.6791666666666665,2.0,2.345833333333333,2.6791666666666667,3.0,3.345833333333333,3.6791666666666667,4.0],"median":[2.29925,2.8585,3.44915,3.126,3.5128,3.47245,3.6767,3.4587,3.40355,3.43495,3.72065,3.72905,3.89315],"wells":[{"well":"A03","v":[2.499,2.8889,2.9246,3.1309,3.5676,4.2295,4.3762,5.0846,5.4692,5.5117,6.1745,4.9551,5.8002]},{"well":"A07","v":[2.9846,3.6117,3.4669,3.1772,3.458,3.5288,3.615,3.5005,3.601,3.5518,3.9263,3.6936,3.2171]},{"well":"B03","v":[2.3929,2.8281,3.4314,3.1211,3.8535,3.6843,3.7679,3.8093,10.8957,10.896,10.896,10.896,10.896]},{"well":"B07","v":[2.1399,2.7847,3.8515,3.8652,3.9026,4.055,4.1553,4.6687,4.5438,4.7819,4.0355,3.9547,4.2435]},{"well":"B11","v":[0.4523,0.5981,0.7308,0.8991,1.1187,1.4197,1.6045,1.8321,2.0535,2.2764,2.4828,2.7934,2.9521]},{"well":"C03","v":[3.322,4.0514,3.6962,3.5993,4.2876,3.4718,3.8559,3.4608,3.7752,3.8452,10.896,10.896,10.896]},{"well":"C07","v":[2.4177,3.1119,4.0386,4.2548,4.3847,4.772,5.3913,5.4486,4.7975,4.9501,3.8572,3.5927,3.6703]},{"well":"C11","v":[0.5317,0.694,0.8728,1.0971,1.3613,1.4991,1.7839,2.0014,2.2447,2.5222,2.7757,3.1442,3.9092]},{"well":"D07","v":[2.8308,3.2504,3.8153,4.3896,3.887,3.4687,4.2368,10.896,10.896,10.896,10.896,10.895,2.8381]},{"well":"D11","v":[0.6394,0.8559,1.1086,1.3769,1.629,1.8524,2.0963,2.4368,2.6991,3.0571,3.5841,3.7645,3.8771]},{"well":"E03","v":[2.9751,3.7873,4.049,3.7168,4.3719,4.7048,4.3716,4.9927,4.2778,4.2355,4.1345,4.2377,10.896]},{"well":"E07","v":[2.4411,3.4871,3.6462,3.7053,3.7804,4.7582,4.2426,3.4566,3.9479,3.3181,3.2342,3.0784,10.896]},{"well":"E11","v":[0.4092,0.5297,0.667,0.8175,0.95,1.1404,1.2845,1.4693,1.7281,1.9821,2.2179,2.4337,2.6486]},{"well":"F03","v":[2.5243,2.902,3.5992,3.4927,3.4134,4.0499,3.7384,3.8022,3.2061,2.8888,10.896,10.896,10.896]},{"well":"F07","v":[3.1269,3.5751,4.639,3.9967,4.1828,4.2783,4.989,5.0597,4.5743,4.2418,3.3053,10.896,10.896]},{"well":"F11","v":[0.1432,0.166,0.1647,0.1566,0.1626,0.16,0.144,0.1535,0.163,0.1582,0.1538,0.1433,0.1473]},{"well":"G03","v":[2.2056,3.0645,3.7352,3.026,3.5979,3.4731,3.2128,2.5278,2.4313,10.896,10.896,10.896,10.896]},{"well":"G07","v":[3.1294,4.1188,5.7482,4.2449,4.8831,4.6075,4.5509,3.7147,4.0952,4.4256,5.0242,4.7187,4.6493]},{"well":"G11","v":[0.1007,0.1079,0.0941,0.0946,0.0943,0.0957,0.092,0.09,0.0919,0.0874,0.0848,0.083,0.0888]},{"well":"H03","v":[1.2973,1.4563,1.6633,2.077,2.2886,2.4674,2.2712,2.6032,2.3164,2.878,2.6394,2.9353,2.7785]},{"well":"H07","v":[0.8929,1.2493,1.5999,1.8316,1.9393,2.0331,2.1369,2.2633,2.0979,2.3785,2.4446,2.5038,2.5739]},{"well":"H11","v":[0.0882,0.081,0.0853,0.0857,0.0804,0.0834,0.0752,0.0835,0.0809,0.0745,0.0737,0.0718,0.0696]}]},{"label":"PDA+CAF+MAC","n":24,"days":[0.0,0.3458333333333334,0.6791666666666667,1.0,1.3458333333333332,1.6791666666666665,2.0,2.345833333333333,2.6791666666666667,3.0,3.345833333333333,3.6791666666666667,4.0],"median":[3.91475,5.11485,6.90105,6.58715,5.7894,5.12085,4.9835,4.79705,4.54975,4.3877,4.0529,3.8343,3.55645],"wells":[{"well":"A04","v":[5.2496,7.0231,6.7572,6.6439,6.1436,5.7397,5.3132,5.2186,5.3657,4.9454,5.3827,5.6579,4.9369]},{"well":"A08","v":[3.7863,3.723,4.5074,3.5318,3.6862,3.8521,4.1902,4.2265,4.0078,5.2691,10.896,3.8649,3.1786]},{"well":"A12","v":[1.0722,1.3491,1.4812,1.7554,1.9691,2.1578,2.2611,2.5728,2.8255,2.9785,3.4379,3.4105,3.2917]},{"well":"B04","v":[7.564,8.212,7.6745,6.6382,5.9432,5.6017,5.5411,5.4617,5.4348,5.9185,5.5811,4.7087,4.2892]},{"well":"B08","v":[6.96,8.0679,7.7928,7.0891,6.2334,5.6645,5.4602,5.3103,5.1913,5.0368,4.8225,4.3987,3.2675]},{"well":"B12","v":[0.8072,0.8669,1.2482,1.4727,1.8386,1.9328,2.1624,2.5188,2.8871,3.0148,4.0128,3.7216,3.3313]},{"well":"C04","v":[5.8544,8.1257,8.1463,7.6368,6.9562,6.7543,6.6258,6.3417,6.0462,5.9079,10.896,4.2369,3.6971]},{"well":"C08","v":[5.1421,7.4796,7.327,6.7642,5.9837,5.1753,4.8995,4.7907,4.5781,4.322,3.5046,2.9336,3.7138]},{"well":"C12","v":[0.5237,0.6844,0.7881,0.9281,1.1246,1.25,1.3951,1.5191,1.8831,2.062,2.3021,2.6403,2.817]},{"well":"D04","v":[2.9417,5.2542,8.398,8.1918,7.9394,7.8178,7.2342,6.8382,6.318,5.9687,5.9369,4.7304,4.8107]},{"well":"D08","v":[7.382,7.3211,7.0449,6.5361,5.6356,5.0664,5.0675,4.8034,4.5214,4.708,3.8242,3.5739,3.5073]},{"well":"D12","v":[0.8991,0.9863,1.1346,1.2914,1.4766,1.652,2.2908,2.1679,2.8404,2.7249,3.2616,3.2358,3.2104]},{"well":"E04","v":[7.1479,7.4678,7.6699,8.0528,7.4616,6.7341,5.8621,5.1429,5.0491,4.4534,3.8256,4.29,4.3647]},{"well":"E08","v":[6.1162,8.0977,8.1174,7.8254,7.4784,7.1702,6.8544,6.4983,6.0695,5.6771,4.9583,4.5155,4.2845]},{"well":"E12","v":[1.4591,1.5256,1.6366,1.762,1.9972,2.1837,2.4792,2.7291,2.9784,3.3299,3.6689,3.8037,4.2552]},{"well":"F04","v":[5.3615,4.9755,7.7093,8.7469,8.6415,8.4173,8.0503,7.6901,7.1024,7.1679,6.5976,5.6835,5.2548]},{"well":"F08","v":[8.0891,8.0285,8.0097,7.8047,7.1639,6.4562,5.7029,4.9726,4.6365,4.0332,4.093,3.6195,3.5135]},{"well":"F12","v":[0.4213,0.3928,0.4476,0.4418,0.4507,0.478,0.4907,0.4709,0.4986,0.5377,0.5774,0.603,0.5841]},{"well":"G04","v":[4.0432,8.5683,8.9434,8.5362,8.2325,7.6312,7.3271,6.8182,6.6592,6.2216,6.0817,5.5734,5.2809]},{"well":"G08","v":[6.3837,5.8699,7.7236,7.4325,7.212,6.8086,6.1395,5.3957,5.2179,4.8392,4.304,4.0305,3.6503]},{"well":"G12","v":[0.239,0.2556,0.2884,0.3736,0.3838,0.4087,0.377,0.3998,0.4767,0.4894,0.5121,0.5248,0.5049]},{"well":"H04","v":[1.8584,1.8144,2.3405,2.148,2.7243,3.504,3.1503,3.044,3.8106,4.0081,4.5709,5.3479,3.5994]},{"well":"H08","v":[2.8238,2.5805,3.3812,2.4382,1.6352,2.0034,2.0895,1.9441,2.4184,2.3226,2.3194,3.0196,3.4425]},{"well":"H12","v":[0.0714,0.0544,0.0567,0.0571,0.0476,0.0487,0.0526,0.0512,0.0439,0.0418,0.0427,0.0405,0.0378]}]}]},"dead_matched":{"rows":[{"group":"PDA","n_t":7,"n_ctrl":9,"med_t":0.03184,"med_ctrl":0.02059,"ratio":1.546,"delta":0.27,"p":0.40787,"values_t":[0.064,0.0229,0.00631,0.03184,0.02797,0.0681,0.04821],"values_ctrl":[0.01306,0.05528,0.13894,0.02472,0.0149,0.00606,0.01658,0.02059,0.05927],"q":0.81573},{"group":"PDA+CAF","n_t":7,"n_ctrl":15,"med_t":0.00647,"med_ctrl":0.0113,"ratio":0.573,"delta":-0.105,"p":0.72185,"values_t":[0.00333,0.01011,0.00243,0.00352,0.00647,0.01447,0.01019],"values_ctrl":[0.08104,0.12077,0.02456,0.0,0.03102,0.0113,0.0,0.01242,0.0,0.00994,0.0,0.0,0.0893,0.26656,0.0],"q":0.96247},{"group":"PDA+MAC","n_t":6,"n_ctrl":16,"med_t":0.0037,"med_ctrl":0.00434,"ratio":0.853,"delta":0.0,"p":1.0,"values_t":[0.00801,0.00236,0.00145,0.00504,0.00175,0.00813],"values_ctrl":[0.03889,0.01134,0.0,0.00868,0.0,0.0,0.02667,0.01515,0.0,0.015,0.0,0.01073,0.0,0.0,0.01586,0.0],"q":1.0},{"group":"PDA+CAF+MAC","n_t":7,"n_ctrl":17,"med_t":0.00023,"med_ctrl":0.00017,"ratio":1.353,"delta":0.235,"p":0.38527,"values_t":[5e-05,0.00103,0.0002,0.00018,0.00068,0.00023,0.0021],"values_ctrl":[0.00017,0.0,0.00045,2e-05,0.0009,0.0,0.0,0.00175,0.00147,0.0,0.00075,0.0,0.00375,0.0,0.00068,0.00391,0.0],"q":0.81573}],"n_groups":4,"n_up":2,"sign_p":1.0},"tumour_matched":{"rows":[{"group":"PDA","n_t":7,"n_ctrl":9,"med_t":0.24855,"med_ctrl":0.12442,"ratio":1.998,"delta":0.238,"p":0.46976,"values_t":[0.28356,0.19678,0.0344,0.24855,0.0397,0.3691,0.35815],"values_ctrl":[0.09481,0.21019,0.40397,0.07099,0.15778,0.09473,0.12442,0.12753,0.07129],"q":0.69312},{"group":"PDA+CAF","n_t":7,"n_ctrl":15,"med_t":0.2492,"med_ctrl":0.35322,"ratio":0.706,"delta":-0.333,"p":0.23719,"values_t":[0.31354,0.40516,0.25737,0.04626,0.17781,0.05739,0.2492],"values_ctrl":[0.51449,0.35322,0.37826,0.61164,0.34926,0.17299,0.70927,0.2338,0.70988,0.31119,0.02839,0.01897,0.46885,0.67606,0.02382],"q":0.69312},{"group":"PDA+MAC","n_t":6,"n_ctrl":16,"med_t":0.29975,"med_ctrl":0.32244,"ratio":0.93,"delta":-0.125,"p":0.69312,"values_t":[0.05228,0.49394,0.22744,0.43693,0.37206,0.19106],"values_ctrl":[0.69246,0.34688,0.51864,0.29793,0.59969,0.65676,0.61971,0.17986,0.46389,0.1922,0.02266,0.298,0.00824,0.59316,0.18049,0.01295],"q":0.69312},{"group":"PDA+CAF+MAC","n_t":7,"n_ctrl":17,"med_t":0.25567,"med_ctrl":0.22819,"ratio":1.12,"delta":-0.143,"p":0.61941,"values_t":[0.06838,0.26276,0.25567,0.05434,0.2618,0.42185,0.22213],"values_ctrl":[0.42767,0.52454,0.1794,0.60062,0.14796,0.40457,0.49179,0.22819,0.35901,0.39197,0.14976,0.04751,0.14991,0.07397,0.99852,0.15009,0.00446],"q":0.69312}],"n_groups":4,"n_up":2,"sign_p":1.0}};
+window.THEME={"colors": {"green": "#1baf7a", "orange": "#eb6834", "nir": "#4a3aa7"}, "scene": {"green": "#199e70", "orange": "#d95926", "nir": "#9085e9"}, "terrScene": "#5a6270", "terr": "#b8b7b2", "seq": ["#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7", "#3987e5", "#2a78d6", "#256abf", "#1c5cab", "#184f95", "#104281", "#0d366b"], "label": {"green": "tümör", "orange": "T hücresi", "nir": "ölü hücre"}};</script>
+<script>/* Figürler — SVG, veriden çizilir, zaman kaydırıcısıyla güncellenir.
+
+   İki kural her figürde geçerli:
+
+   Tek eksen. Farklı birimdeki büyüklükler (mm², ≈hücre) asla aynı eksene
+   bindirilmez; küçük çoklu panel kullanılır, her panelin kendi ekseni ve kendi
+   birimi olur. Çift y ekseni bir figürde iki ölçeği üst üste koyar ve iki eğri
+   arasındaki her kesişme yapay olur.
+
+   Renk tek başına taşıyıcı değil. Her seri doğrudan etiketlenir ve her figürün
+   altında tablo görünümü var; palet ayrıca renk körlüğü için denetlendi
+   (atlas/palette_check.py).
+
+   Yerleşim sabittir: her figürün viewBox'ı ve yüksekliği baştan bellidir, zaman
+   değiştiğinde sayfa akışı kıpırdamaz. */
+
+const FIG = (() => {
+  const NS = "http://www.w3.org/2000/svg";
+  const INK = "#0b0b0b", INK2 = "#52514e", MUTED = "#8a8983", RULE = "#e6e5e1";
+
+  const el = (tag, at = {}, kids = []) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in at) if (at[k] != null) e.setAttribute(k, at[k]);
+    for (const c of [].concat(kids)) e.append(c);
+    return e;
+  };
+  const text = (x, y, s, at = {}) => {
+    const e = el("text", { x, y, fill: INK2, "font-size": 10.5, ...at });
+    e.textContent = s;
+    return e;
+  };
+
+  /* Okunabilir eksen adımı: 1, 2, 2,5 veya 5 × 10ⁿ. */
+  function ticks(lo, hi, want = 5) {
+    if (!(hi > lo)) return [lo];
+    const raw = (hi - lo) / want;
+    const p = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].find(m => m * p >= raw) * p;
+    const out = [];
+    for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step)
+      out.push(+v.toFixed(10));
+    return out;
+  }
+
+  const fmt = (v, d) => {
+    if (v == null || !isFinite(v)) return "—";
+    if (d != null) return v.toLocaleString("tr-TR", { minimumFractionDigits: d,
+                                                      maximumFractionDigits: d });
+    const a = Math.abs(v);
+    const dg = a === 0 ? 0 : a < 0.01 ? 4 : a < 1 ? 3 : a < 10 ? 2 : a < 1000 ? 1 : 0;
+    return v.toLocaleString("tr-TR", { minimumFractionDigits: dg, maximumFractionDigits: dg });
+  };
+
+  // ------------------------------------------------------------- ipucu katmanı
+  let tipEl = null;
+  function tip(html, ev) {
+    if (!tipEl) { tipEl = document.createElement("div"); tipEl.id = "tip";
+                  document.body.append(tipEl); }
+    tipEl.innerHTML = html;
+    tipEl.style.display = "block";
+    const r = tipEl.getBoundingClientRect();
+    let x = ev.clientX + 14, y = ev.clientY - 10;
+    if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14;
+    if (y + r.height > innerHeight - 8) y = innerHeight - r.height - 8;
+    tipEl.style.left = x + "px"; tipEl.style.top = Math.max(8, y) + "px";
+  }
+  const untip = () => { if (tipEl) tipEl.style.display = "none"; };
+
+  function hoverable(node, html) {
+    node.style.cursor = "default";
+    node.addEventListener("pointerenter", e => tip(html, e));
+    node.addEventListener("pointermove", e => tip(html, e));
+    node.addEventListener("pointerleave", untip);
+    return node;
+  }
+
+  // ============================================================ küçük panel
+  /* Yatay çubuk paneli: y = z katmanı (aşağıdan yukarı, 3B sahnedeki sırayla),
+     x = miktar. Her kanal kendi panelinde, kendi biriminde. */
+  function depthPanel(g, box, vals, color, label, unit, fmtv) {
+    const { x, y, w, h } = box;
+    const n = vals.length;
+    const hi = Math.max(...vals, 1e-12);
+    const tk = ticks(0, hi, 3);
+    const xmax = Math.max(tk[tk.length - 1], hi);
+    const bh = h / n;
+
+    g.append(text(x, y - 15, label, { fill: INK, "font-size": 11.5, "font-weight": 600 }));
+    g.append(text(x, y - 3, unit, { fill: MUTED, "font-size": 10 }));
+
+    for (const t of tk) {
+      const px = x + t / xmax * w;
+      g.append(el("line", { x1: px, y1: y, x2: px, y2: y + h, stroke: RULE }));
+      g.append(text(px, y + h + 12, fmt(t), { "text-anchor": "middle", fill: MUTED,
+                                              "font-size": 9.5 }));
+    }
+    for (let i = 0; i < n; i++) {
+      const zi = n - 1 - i;                       // z00 altta
+      const bw = vals[zi] / xmax * w;
+      const by = y + i * bh;
+      const r = el("rect", { x, y: by + 0.9, width: Math.max(bw, vals[zi] > 0 ? 0.8 : 0),
+                             height: Math.max(bh - 1.8, 1), fill: color, rx: 1 });
+      hoverable(r, `<b>z${String(zi).padStart(2, "0")}</b><br>` +
+                   `<span class="k">${label}</span> ${fmtv(vals[zi])} ${unit}`);
+      g.append(r);
+    }
+    g.append(el("line", { x1: x, y1: y, x2: x, y2: y + h, stroke: "#c9c8c3" }));
+  }
+
+  /* Figür 1 — derinlikte dağılım (3 panel, 3 birim) */
+  function depth(host, d, T) {
+    const W = 560, H = 232, top = 40, bot = 34, left = 34, gap = 26;
+    const pw = (W - left - gap * 2 - 8) / 3, ph = H - top - bot;
+    const svg = el("svg", { class: "plot", viewBox: `0 0 ${W} ${H}`, role: "img" });
+
+    const nz = d.by_z.green.length;
+    for (let i = 0; i < nz; i++) {
+      if (i % 4) continue;
+      const yy = top + (nz - 1 - i + 0.5) * (ph / nz);
+      svg.append(text(left - 7, yy + 3.4, "z" + String(i).padStart(2, "0"),
+                      { "text-anchor": "end", fill: MUTED, "font-size": 9.5 }));
+    }
+
+    const panels = [
+      ["green", d.derived.tumour_area_by_z_mm2, "tümör", "mm²", v => fmt(v, 4)],
+      ["orange", d.derived.tcells_by_z, "T hücresi", "≈ hücre", v => fmt(v, 0)],
+      ["nir", d.derived.dead_area_by_z_mm2, "ölü hücre", "mm²", v => fmt(v, 5)],
+    ];
+    panels.forEach(([ch, vals, lbl, unit, f], k) => {
+      const g = el("g");
+      depthPanel(g, { x: left + k * (pw + gap), y: top, w: pw, h: ph },
+                 vals, T.colors[ch], lbl, unit, f);
+      svg.append(g);
+    });
+    svg.append(text(W / 2, H - 4, "katmandaki miktar", { "text-anchor": "middle",
+      fill: MUTED, "font-size": 10 }));
+    host.replaceChildren(svg);
+    return svg;
+  }
+
+  /* Figür 2 — organoid kenarına işaretli uzaklık × zenginleşme.
+     Zenginleşme boyutsuz olduğu için üç kanal aynı eksende karşılaştırılabilir;
+     1,0 = rastgele dağılım referans çizgisi.
+
+     Eksen logaritmik, çünkü çizilen şey bir orandır: 0,5 ile 2 aynı büyüklükte
+     ama ters yönde sapmalardır ve doğrusal eksende öyle görünmezler. Ayrıca aynı
+     kuyuda tümör 142× zenginleşirken T hücresi 0,05×'e düşebiliyor — doğrusal
+     eksen bu aralığı ya kesmek ya da alt ucu ezmek zorunda kalırdı.
+
+     Tam sıfır (o bantta hiç sinyal yok) logaritmada tanımsız; ayrı bir satırda,
+     içi boş işaretle, ekseni kesen bir boşluğun altında çizilir — gizlenmez. */
+  function bands(host, d, T, labels) {
+    const W = 560, H = 262, top = 20, bot = 78, left = 46, right = 66;
+    const pw = W - left - right, ph = H - top - bot - 16;
+    const svg = el("svg", { class: "plot", viewBox: `0 0 ${W} ${H}`, role: "img" });
+    const n = labels.length;
+    const zeroY = top + ph + 15;               // "hiç" satırı
+
+    let lo = 1, hi = 1;
+    for (const ch of ["green", "orange", "nir"])
+      for (const v of d.bands[ch].enrich)
+        if (v != null && v > 0) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    const L = Math.log10(Math.max(lo, 1e-3)), Hh = Math.log10(hi);
+    const pad = Math.max(0.12, (Hh - L) * 0.08);
+    const y0 = L - pad, y1 = Hh + pad;
+    const Y = v => top + ph - (Math.log10(v) - y0) / Math.max(y1 - y0, 1e-9) * ph;
+    const X = i => left + (i + 0.5) * (pw / n);
+
+    const cand = [0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 10, 25, 100, 1000];
+    for (const t of cand.filter(v => Math.log10(v) >= y0 && Math.log10(v) <= y1)) {
+      svg.append(el("line", { x1: left, y1: Y(t), x2: left + pw, y2: Y(t), stroke: RULE }));
+      svg.append(text(left - 7, Y(t) + 3.4, fmt(t, t < 1 ? 2 : 0),
+                      { "text-anchor": "end", fill: MUTED }));
+    }
+    // eksen kesiği: log ekseni ile "hiç" satırı arasındaki süreksizlik
+    svg.append(el("line", { x1: left - 12, y1: top + ph + 5, x2: left + 4, y2: top + ph + 1,
+      stroke: "#c9c8c3", "stroke-width": 1.2 }));
+    svg.append(el("line", { x1: left - 12, y1: top + ph + 9, x2: left + 4, y2: top + ph + 5,
+      stroke: "#c9c8c3", "stroke-width": 1.2 }));
+    svg.append(text(left - 7, zeroY + 3.4, "hiç", { "text-anchor": "end", fill: MUTED }));
+    // organoid içi / dışı ayrımı: 0 µm sınırı
+    const bx = left + 5 * (pw / n);
+    svg.append(el("line", { x1: bx, y1: top, x2: bx, y2: top + ph, stroke: "#b9b8b3",
+                            "stroke-dasharray": "3 3" }));
+    svg.append(text(bx - 6, top + 11, "organoid içi", { "text-anchor": "end", fill: MUTED,
+      "font-size": 10 }));
+    svg.append(text(bx + 6, top + 11, "dışı", { fill: MUTED, "font-size": 10 }));
+    // rastgele dağılım referansı
+    svg.append(el("line", { x1: left, y1: Y(1), x2: left + pw, y2: Y(1), stroke: INK2,
+                            "stroke-width": 1.2 }));
+    svg.append(text(left + pw + 6, Y(1) + 3.4, "1,0 rastgele", { fill: INK2, "font-size": 10 }));
+
+    for (const ch of ["green", "orange", "nir"]) {
+      const v = d.bands[ch].enrich;
+      const pts = [], zeros = [];
+      for (let i = 0; i < n; i++) {
+        if (v[i] == null) continue;                       // bant kadraj dışında
+        if (v[i] > 0) pts.push([X(i), Y(v[i]), i, v[i]]);
+        else zeros.push([X(i), zeroY, i, 0]);
+      }
+      const info = (i, val) =>
+        `<b>${labels[i]} µm</b><br><span class="k">${T.label[ch]}</span> ` +
+        (val > 0 ? `${fmt(val, 2)}× zenginleşme` : "bu bantta hiç sinyal yok") +
+        `<br><span class="k">sinyal alanı</span> ${fmt(d.bands[ch].area_mm2[i], 5)} mm²` +
+        `<br><span class="k">bant alanı</span> ${fmt(d.band_area_mm2[i], 3)} mm²`;
+
+      if (pts.length > 1)
+        svg.append(el("polyline", { points: pts.map(p => p[0] + "," + p[1]).join(" "),
+          fill: "none", stroke: T.colors[ch], "stroke-width": 2,
+          "stroke-linejoin": "round", "stroke-linecap": "round" }));
+      for (const p of pts) {
+        const c = el("circle", { cx: p[0], cy: p[1], r: 3.4, fill: T.colors[ch],
+                                 stroke: "#fcfcfb", "stroke-width": 1.6 });
+        hoverable(c, info(p[2], p[3]));
+        svg.append(c);
+      }
+      for (const p of zeros) {
+        const c = el("circle", { cx: p[0], cy: p[1], r: 3.2, fill: "#fcfcfb",
+                                 stroke: T.colors[ch], "stroke-width": 1.6 });
+        hoverable(c, info(p[2], 0));
+        svg.append(c);
+      }
+      const last = pts[pts.length - 1] || zeros[zeros.length - 1];
+      if (last)
+        svg.append(text(last[0] + 7, last[1] + 3.4, T.label[ch],
+          { fill: T.colors[ch], "font-size": 10.5, "font-weight": 600 }));
+    }
+
+    labels.forEach((l, i) => {
+      if (i % 2 && i !== labels.length - 1) return;
+      svg.append(text(X(i), zeroY + 17, l, { "text-anchor": "middle", fill: MUTED,
+                                             "font-size": 9.5 }));
+    });
+    svg.append(text(left + pw / 2, H - 24, "organoid kenarına işaretli uzaklık (µm)",
+      { "text-anchor": "middle", fill: INK2, "font-size": 10.5 }));
+    svg.append(text(left + pw / 2, H - 10,
+      "negatif = teritorya içinde · pozitif = dışında",
+      { "text-anchor": "middle", fill: MUTED, "font-size": 9.5 }));
+    svg.append(text(11, top + ph / 2, "zenginleşme (× rastgele)",
+      { "text-anchor": "middle", fill: INK2, "font-size": 10.5,
+        transform: `rotate(-90 11 ${top + ph / 2})` }));
+    host.replaceChildren(svg);
+    return svg;
+  }
+
+  /* Figür 3 — derinlik × uzaklık. Asıl cevap: bir kanalın toplam sinyalinin
+     yüzde kaçı hangi katmanda ve kenardan hangi uzaklıkta.
+     Sıralı tek hue; renk büyüklük taşıyor, kimlik değil. */
+  function zband(host, d, T, labels) {
+    const W = 560, H = 268, top = 34, bot = 74, left = 40, gap = 20;
+    const nz = d.by_z.green.length, nb = labels.length;
+    const pw = (W - left - gap * 2 - 10) / 3, ph = H - top - bot;
+    const cw = pw / nb, ch_ = ph / nz;
+    const svg = el("svg", { class: "plot", viewBox: `0 0 ${W} ${H}`, role: "img" });
+
+    for (let i = 0; i < nz; i++) {
+      if (i % 4) continue;
+      svg.append(text(left - 6, top + (nz - 1 - i + 0.7) * ch_ + 3, "z" + String(i).padStart(2, "0"),
+        { "text-anchor": "end", fill: MUTED, "font-size": 9.5 }));
+    }
+
+    const chans = [["green", "tümör"], ["orange", "T hücresi"], ["nir", "ölü hücre"]];
+    chans.forEach(([ch, lbl], k) => {
+      const m = d.zband[ch];
+      let tot = 0;
+      for (const row of m) for (const v of row) tot += v;
+      const x0 = left + k * (pw + gap);
+      const hiv = tot ? Math.max(...m.flat()) / tot : 1;
+      svg.append(text(x0, top - 20, lbl, { fill: INK, "font-size": 11.5, "font-weight": 600 }));
+      svg.append(text(x0, top - 8,
+        tot ? `en koyu hücre = toplamın %${fmt(hiv * 100, 1)}'i` : "sinyal yok",
+        { fill: MUTED, "font-size": 10 }));
+      for (let z = 0; z < nz; z++) {
+        for (let b = 0; b < nb; b++) {
+          const share = tot ? m[z][b] / tot : 0;
+          const q = hiv > 0 ? Math.min(1, share / hiv) : 0;
+          const col = share === 0 ? "#f7f6f4"
+            : T.seq[Math.min(T.seq.length - 1, Math.floor(Math.pow(q, 0.62) * T.seq.length))];
+          const r = el("rect", { x: x0 + b * cw, y: top + (nz - 1 - z) * ch_,
+            width: cw - 0.6, height: ch_ - 0.6, fill: col });
+          hoverable(r, `<b>${lbl}</b><br><span class="k">katman</span> z${String(z).padStart(2, "0")}` +
+            `<br><span class="k">uzaklık</span> ${labels[b]} µm` +
+            `<br><span class="k">pay</span> ${fmt(share * 100, 2)} %`);
+          svg.append(r);
+        }
+      }
+      // organoid sınırı (0 µm) — 5. bandın bitişi
+      const bx = x0 + 5 * cw;
+      svg.append(el("line", { x1: bx, y1: top, x2: bx, y2: top + ph, stroke: "#0b0b0b",
+        "stroke-width": 1, opacity: .45 }));
+      svg.append(text(x0, top + ph + 13, "içeri", { fill: MUTED, "font-size": 9.5 }));
+      svg.append(text(x0 + pw, top + ph + 13, "dışarı",
+        { fill: MUTED, "font-size": 9.5, "text-anchor": "end" }));
+    });
+
+    // ölçek şeridi
+    const sw = 108, sx = left, sy = H - 34;
+    T.seq.forEach((c, i) => svg.append(el("rect",
+      { x: sx + i * (sw / T.seq.length), y: sy, width: sw / T.seq.length + .4,
+        height: 8, fill: c })));
+    svg.append(text(sx, sy + 20, "0", { fill: MUTED, "font-size": 9.5 }));
+    svg.append(text(sx + sw, sy + 20, "panelin en koyusu",
+      { fill: MUTED, "font-size": 9.5, "text-anchor": "end" }));
+    svg.append(text(sx + sw + 14, sy + 7,
+      "her panel kendi toplamına göre ölçekli — paneller birbiriyle kıyaslanmaz",
+      { fill: MUTED, "font-size": 9.5 }));
+    host.replaceChildren(svg);
+    return svg;
+  }
+
+  /* Figür 4 — zaman seyri. Dört büyüklük, dört birim → dört panel. */
+  function timecourse(host, frames, times, T, tcur) {
+    const W = 560, H = 190, top = 30, bot = 40, left = 6, gap = 16;
+    const pw = (W - left - gap * 3 - 10) / 4, ph = H - top - bot;
+    const svg = el("svg", { class: "plot", viewBox: `0 0 ${W} ${H}`, role: "img" });
+    const days = times.map(t => t.hours / 24);
+    const dmax = Math.max(...days);
+
+    const series = [
+      ["organoid", "mm²", "#7d7c77", f => f.derived.organoid_mm2, v => fmt(v, 2)],
+      ["tümör", "mm²", T.colors.green, f => f.derived.tumour_mm2, v => fmt(v, 3)],
+      ["T hücresi", "≈ hücre", T.colors.orange, f => f.derived.tcells, v => fmt(v, 0)],
+      ["ölü hücre", "mm²", T.colors.nir, f => f.derived.dead_mm2, v => fmt(v, 4)],
+    ];
+
+    series.forEach(([lbl, unit, col, get, f], k) => {
+      const x0 = left + k * (pw + gap);
+      const vals = frames.map(get);
+      const hi = Math.max(...vals, 1e-9);
+      const tk = ticks(0, hi, 3);
+      const ymax = Math.max(tk[tk.length - 1], hi);
+      const X = dd => x0 + dd / dmax * pw;
+      const Y = v => top + ph - v / ymax * ph;
+
+      svg.append(text(x0, top - 18, lbl, { fill: INK, "font-size": 11.5, "font-weight": 600 }));
+      svg.append(text(x0, top - 6, unit, { fill: MUTED, "font-size": 10 }));
+      for (const t of tk) {
+        svg.append(el("line", { x1: x0, y1: Y(t), x2: x0 + pw, y2: Y(t), stroke: RULE }));
+        svg.append(text(x0 + pw, Y(t) - 2.5, fmt(t), { "text-anchor": "end", fill: MUTED,
+          "font-size": 9 }));
+      }
+      svg.append(el("polyline", { points: vals.map((v, i) => X(days[i]) + "," + Y(v)).join(" "),
+        fill: "none", stroke: col, "stroke-width": 2, "stroke-linejoin": "round" }));
+      vals.forEach((v, i) => {
+        const c = el("circle", { cx: X(days[i]), cy: Y(v), r: i === tcur ? 4.2 : 2.4,
+          fill: i === tcur ? col : "#fcfcfb", stroke: col,
+          "stroke-width": i === tcur ? 1.6 : 1.4 });
+        hoverable(c, `<b>${lbl}</b><br><span class="k">gün</span> ${fmt(days[i], 1)}` +
+          `<br><span class="k">değer</span> ${f(v)} ${unit}`);
+        svg.append(c);
+      });
+      for (const dd of [0, Math.round(dmax)]) {
+        svg.append(text(X(dd), top + ph + 14, dd === 0 ? "0" : dd + " g",
+          { "text-anchor": dd === 0 ? "start" : "end", fill: MUTED, "font-size": 9.5 }));
+      }
+      svg.append(el("line", { x1: x0, y1: top + ph, x2: x0 + pw, y2: top + ph,
+        stroke: "#c9c8c3" }));
+    });
+    svg.append(text(W / 2, H - 6, "ekimden sonra geçen süre (gün)",
+      { "text-anchor": "middle", fill: MUTED, "font-size": 10 }));
+    host.replaceChildren(svg);
+    return svg;
+  }
+
+  // --------------------------------------------------------------- dışa aktar
+  function download(svg, name) {
+    const c = svg.cloneNode(true);
+    c.setAttribute("xmlns", NS);
+    c.setAttribute("style", "background:#fcfcfb");
+    const s = new XMLSerializer().serializeToString(c);
+    const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n', s],
+                          { type: "image/svg+xml" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = name;
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+
+  function tableFrom(head, rows) {
+    const t = document.createElement("table");
+    t.className = "data";
+    const th = document.createElement("thead");
+    th.append(rowOf(head, "th"));
+    const tb = document.createElement("tbody");
+    for (const r of rows) tb.append(rowOf(r, "td"));
+    t.append(th, tb);
+    return t;
+  }
+  function rowOf(cells, tag) {
+    const tr = document.createElement("tr");
+    for (const c of cells) { const e = document.createElement(tag); e.textContent = c; tr.append(e); }
+    return tr;
+  }
+
+  return { depth, bands, zband, timecourse, download, tableFrom, fmt, ticks, untip };
+})();
+</script>
+<script>/* Grup karşılaştırma figürleri.
+
+   Renk burada kimlik taşımıyor: gruplar zaten x ekseninde ayrılıyor, üstüne bir
+   de renk vermek gereksiz bir kodlama olurdu — ve kanal renkleriyle çakışırdı
+   (turuncu bu atlasta "T hücresi" demek, "PDA+CAF" değil). Aynı sebeple büyüme
+   eğrileri tek bir grafikte üst üste değil, ko-kültür başına küçük panellerde.
+
+   Kutu grafiği yok: koşul başına 4–17 kuyu var, bir kutu grafiği o örneklemde
+   çeyrekleri uydurur. Her kuyu bir nokta, medyan kalın çizgi, önyükleme %95
+   güven aralığı arka şerit. Yatay dağıtma deterministik (kuyu sırasına göre),
+   rastgele değil — sayfa her açıldığında aynı figür çıksın diye. */
+
+const GRP = (() => {
+  const NS = "http://www.w3.org/2000/svg";
+  const INK = "#0b0b0b", INK2 = "#52514e", MUTED = "#8a8983", RULE = "#e6e5e1";
+  const DOT = "#3b4655", CI = "#dcdbd6";
+
+  const el = (t, a = {}, k = []) => {
+    const e = document.createElementNS(NS, t);
+    for (const n in a) if (a[n] != null) e.setAttribute(n, a[n]);
+    for (const c of [].concat(k)) e.append(c);
+    return e;
+  };
+  const text = (x, y, s, a = {}) => {
+    const e = el("text", { x, y, fill: INK2, "font-size": 10.5, ...a });
+    e.textContent = s; return e;
+  };
+  const fmt = FIG.fmt;
+
+  /* Deterministik yatay dağıtma: aynı değere sahip noktalar üst üste binmesin. */
+  const jitter = (i, n) => n <= 1 ? 0 : ((i % 5) - 2) * 3.4 + (i > 4 ? 0 : 0);
+
+  /* Nokta şeridi. log=true ise oran verisi (zenginleşme) için logaritmik eksen. */
+  function strip(host, data, opt) {
+    const { title, unit, ref, log, d } = opt;
+    const gs = data.groups;
+    const W = 560, H = 250, top = 26, bot = 58, left = 58, right = 14;
+    const pw = W - left - right, ph = H - top - bot;
+    const svg = el("svg", { class: "plot", viewBox: `0 0 ${W} ${H}`, role: "img" });
+    if (!gs.length) { host.replaceChildren(svg); return svg; }
+
+    const all = gs.flatMap(g => g.values).concat(gs.flatMap(g => g.ci));
+    let lo = Math.min(...all), hi = Math.max(...all);
+    if (ref != null) { lo = Math.min(lo, ref); hi = Math.max(hi, ref); }
+    let Y, tk;
+    if (log) {
+      const pos = all.filter(v => v > 0);
+      const l0 = Math.log10(Math.min(...pos)) - 0.12, l1 = Math.log10(hi) + 0.12;
+      Y = v => top + ph - (Math.log10(Math.max(v, Math.pow(10, l0))) - l0) / (l1 - l0) * ph;
+      tk = [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 10, 25, 100]
+        .filter(v => Math.log10(v) >= l0 && Math.log10(v) <= l1);
+    } else {
+      const pad = (hi - lo) * 0.1 || 1;
+      const y0 = lo - pad, y1 = hi + pad;
+      Y = v => top + ph - (v - y0) / (y1 - y0) * ph;
+      tk = FIG.ticks(y0, y1, 5);
+    }
+    for (const t of tk) {
+      svg.append(el("line", { x1: left, y1: Y(t), x2: left + pw, y2: Y(t), stroke: RULE }));
+      svg.append(text(left - 8, Y(t) + 3.4, fmt(t, t < 1 ? 2 : d), { "text-anchor": "end",
+        fill: MUTED }));
+    }
+    if (ref != null) {
+      svg.append(el("line", { x1: left, y1: Y(ref), x2: left + pw, y2: Y(ref),
+        stroke: INK2, "stroke-width": 1.2 }));
+      svg.append(text(left + pw, Y(ref) - 5, "rastgele dağılım", { "text-anchor": "end",
+        fill: INK2, "font-size": 10 }));
+    }
+
+    const slot = pw / gs.length;
+    gs.forEach((g, k) => {
+      const cx = left + slot * (k + 0.5);
+      // önyükleme %95 GA — medyanın belirsizliği, dağılımın genişliği değil
+      svg.append(el("rect", { x: cx - 20, y: Math.min(Y(g.ci[0]), Y(g.ci[1])),
+        width: 40, height: Math.max(2, Math.abs(Y(g.ci[1]) - Y(g.ci[0]))),
+        fill: CI, rx: 1 }));
+      g.values.forEach((v, i) => {
+        const c = el("circle", { cx: cx + jitter(i, g.values.length), cy: Y(v), r: 3.6,
+          fill: DOT, "fill-opacity": .78, stroke: "#fcfcfb", "stroke-width": 1.2 });
+        c.addEventListener("pointerenter", e => tipShow(
+          `<b>${g.wells[i]}</b><br><span class="k">${g.label}</span><br>` +
+          `${fmt(v, d)} ${unit}`, e));
+        c.addEventListener("pointermove", e => tipShow(
+          `<b>${g.wells[i]}</b><br><span class="k">${g.label}</span><br>` +
+          `${fmt(v, d)} ${unit}`, e));
+        c.addEventListener("pointerleave", tipHide);
+        svg.append(c);
+      });
+      svg.append(el("line", { x1: cx - 24, y1: Y(g.median), x2: cx + 24, y2: Y(g.median),
+        stroke: INK, "stroke-width": 2.4, "stroke-linecap": "round" }));
+      svg.append(text(cx, top + ph + 17, g.label, { "text-anchor": "middle", fill: INK,
+        "font-size": 11 }));
+      svg.append(text(cx, top + ph + 30, `n=${g.n} · ${fmt(g.median, d)}`,
+        { "text-anchor": "middle", fill: MUTED, "font-size": 10 }));
+    });
+    svg.append(el("line", { x1: left, y1: top + ph, x2: left + pw, y2: top + ph,
+      stroke: "#c9c8c3" }));
+    svg.append(text(13, top + ph / 2, unit, { "text-anchor": "middle", fill: INK2,
+      "font-size": 10.5, transform: `rotate(-90 13 ${top + ph / 2})` }));
+    svg.append(text(left, 12, title, { fill: INK, "font-size": 11.5, "font-weight": 600 }));
+    host.replaceChildren(svg);
+    return svg;
+  }
+
+  /* Büyüme: ko-kültür başına panel. Ortak birim olduğu için ortak y ekseni —
+     paneller burada gerçekten karşılaştırılabilir. */
+  function curves(host, data, opt) {
+    const gs = data.groups;
+    const W = 560, H = 200, top = 34, bot = 40, left = 44, gap = 14;
+    const pw = (W - left - gap * (gs.length - 1) - 10) / gs.length, ph = H - top - bot;
+    const svg = el("svg", { class: "plot", viewBox: `0 0 ${W} ${H}`, role: "img" });
+    if (!gs.length) { host.replaceChildren(svg); return svg; }
+
+    const hi = Math.max(...gs.flatMap(g => g.wells.flatMap(w => w.v)));
+    const days = gs[0].days, dmax = Math.max(...days);
+    const tk = FIG.ticks(0, hi, 4);
+    const ymax = Math.max(tk[tk.length - 1], hi);
+    const Y = v => top + ph - v / ymax * ph;
+
+    gs.forEach((g, k) => {
+      const x0 = left + k * (pw + gap);
+      const X = dd => x0 + dd / dmax * pw;
+      for (const t of tk)
+        svg.append(el("line", { x1: x0, y1: Y(t), x2: x0 + pw, y2: Y(t), stroke: RULE }));
+      if (k === 0) for (const t of tk)
+        svg.append(text(left - 7, Y(t) + 3.4, fmt(t, 1), { "text-anchor": "end", fill: MUTED }));
+
+      for (const w of g.wells) {
+        const pl = el("polyline", { points: w.v.map((v, i) => X(days[i]) + "," + Y(v)).join(" "),
+          fill: "none", stroke: "#9aa0a8", "stroke-width": 1, "stroke-opacity": .5 });
+        pl.addEventListener("pointerenter", e => tipShow(
+          `<b>${w.well}</b><br><span class="k">${g.label}</span><br>` +
+          `gün 4: ${fmt(w.v[w.v.length - 1], 2)} ${opt.unit}`, e));
+        pl.addEventListener("pointermove", e => tipShow(
+          `<b>${w.well}</b><br><span class="k">${g.label}</span><br>` +
+          `gün 4: ${fmt(w.v[w.v.length - 1], 2)} ${opt.unit}`, e));
+        pl.addEventListener("pointerleave", tipHide);
+        svg.append(pl);
+      }
+      svg.append(el("polyline", { points: g.median.map((v, i) => X(days[i]) + "," + Y(v)).join(" "),
+        fill: "none", stroke: INK, "stroke-width": 2.2, "stroke-linejoin": "round" }));
+
+      svg.append(text(x0, top - 18, g.label, { fill: INK, "font-size": 11, "font-weight": 600 }));
+      svg.append(text(x0, top - 6, `n=${g.n} kuyu`, { fill: MUTED, "font-size": 10 }));
+      svg.append(el("line", { x1: x0, y1: top + ph, x2: x0 + pw, y2: top + ph,
+        stroke: "#c9c8c3" }));
+      svg.append(text(x0, top + ph + 14, "0", { fill: MUTED, "font-size": 9.5 }));
+      svg.append(text(x0 + pw, top + ph + 14, Math.round(dmax) + " g",
+        { fill: MUTED, "font-size": 9.5, "text-anchor": "end" }));
+    });
+    svg.append(text(13, top + ph / 2, opt.unit, { "text-anchor": "middle", fill: INK2,
+      "font-size": 10.5, transform: `rotate(-90 13 ${top + ph / 2})` }));
+    host.replaceChildren(svg);
+    return svg;
+  }
+
+  /* Eşleşmiş ±T karşılaştırması: her ko-kültür içinde iki nokta bulutu ve
+     medyanları birleştiren çizgi. Ko-kültür sabit tutuluyor çünkü kendisi de
+     hem ölümü hem T dağılımını etkiliyor. */
+  function matched(host, data, opt) {
+    const rows = data.rows;
+    const W = 560, H = 236, top = 26, bot = 62, left = 58, right = 14;
+    const pw = W - left - right, ph = H - top - bot;
+    const svg = el("svg", { class: "plot", viewBox: `0 0 ${W} ${H}`, role: "img" });
+    if (!rows.length) { host.replaceChildren(svg); return svg; }
+
+    const all = rows.flatMap(r => r.values_t.concat(r.values_ctrl));
+    const hi = Math.max(...all), lo = Math.min(...all);
+    const tk = FIG.ticks(Math.min(0, lo), hi, 4);
+    const ymax = Math.max(tk[tk.length - 1], hi) || 1;
+    const Y = v => top + ph - v / ymax * ph;
+    for (const t of tk) {
+      svg.append(el("line", { x1: left, y1: Y(t), x2: left + pw, y2: Y(t), stroke: RULE }));
+      svg.append(text(left - 8, Y(t) + 3.4, fmt(t, opt.d), { "text-anchor": "end", fill: MUTED }));
+    }
+
+    const slot = pw / rows.length;
+    rows.forEach((r, k) => {
+      const c0 = left + slot * (k + 0.5) - 22, c1 = left + slot * (k + 0.5) + 22;
+      [[c0, r.values_ctrl, r.med_ctrl, "T hücresi yok"],
+       [c1, r.values_t, r.med_t, "+T hücresi"]].forEach(([cx, vals, med, lbl]) => {
+        vals.forEach((v, i) => {
+          const c = el("circle", { cx: cx + ((i % 3) - 1) * 3.2, cy: Y(v), r: 3.2,
+            fill: DOT, "fill-opacity": .72, stroke: "#fcfcfb", "stroke-width": 1.1 });
+          c.addEventListener("pointerenter", e => tipShow(
+            `<b>${r.group}</b><br><span class="k">${lbl}</span><br>${fmt(v, opt.d)} ${opt.unit}`, e));
+          c.addEventListener("pointermove", e => tipShow(
+            `<b>${r.group}</b><br><span class="k">${lbl}</span><br>${fmt(v, opt.d)} ${opt.unit}`, e));
+          c.addEventListener("pointerleave", tipHide);
+          svg.append(c);
+        });
+        svg.append(el("line", { x1: cx - 14, y1: Y(med), x2: cx + 14, y2: Y(med),
+          stroke: INK, "stroke-width": 2.2, "stroke-linecap": "round" }));
+      });
+      svg.append(el("line", { x1: c0, y1: Y(r.med_ctrl), x2: c1, y2: Y(r.med_t),
+        stroke: INK, "stroke-width": 1, "stroke-dasharray": "3 3" }));
+      svg.append(text(left + slot * (k + 0.5), top + ph + 17, r.group,
+        { "text-anchor": "middle", fill: INK, "font-size": 11 }));
+      const sig = r.q == null ? "" : r.q < 0.05 ? ` · q=${fmt(r.q, 3)}` : " · anlamlı değil";
+      svg.append(text(left + slot * (k + 0.5), top + ph + 30,
+        `${fmt(r.ratio, 2)}× · δ ${r.delta > 0 ? "+" : ""}${fmt(r.delta, 2)}${sig}`,
+        { "text-anchor": "middle", fill: MUTED, "font-size": 9.5 }));
+    });
+    svg.append(text(left, 12, "sol: T hücresi yok · sağ: +T hücresi",
+      { fill: MUTED, "font-size": 10 }));
+    svg.append(el("line", { x1: left, y1: top + ph, x2: left + pw, y2: top + ph,
+      stroke: "#c9c8c3" }));
+    svg.append(text(13, top + ph / 2, opt.unit, { "text-anchor": "middle", fill: INK2,
+      "font-size": 10.5, transform: `rotate(-90 13 ${top + ph / 2})` }));
+    host.replaceChildren(svg);
+    return svg;
+  }
+
+  // ------------------------------------------------------------------- ipucu
+  let tipEl;
+  function tipShow(html, ev) {
+    if (!tipEl) { tipEl = document.createElement("div"); tipEl.id = "tip";
+                  document.body.append(tipEl); }
+    tipEl.innerHTML = html; tipEl.style.display = "block";
+    const r = tipEl.getBoundingClientRect();
+    let x = ev.clientX + 14, y = ev.clientY - 10;
+    if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14;
+    if (y + r.height > innerHeight - 8) y = innerHeight - r.height - 8;
+    tipEl.style.left = x + "px"; tipEl.style.top = Math.max(8, y) + "px";
+  }
+  const tipHide = () => { if (tipEl) tipEl.style.display = "none"; };
+
+  return { strip, curves, matched };
+})();
+
+// --------------------------------------------------------------------- kurulum
+(() => {
+  const G = window.GROUPS;
+  const $ = s => document.querySelector(s);
+  const fmt = FIG.fmt;
+  const svgs = {};
+
+  svgs.enrich_coc = GRP.strip($("#fig_enrich_coc"), G.enrich_coculture, {
+    title: "gün 4 · yalnız T hücresi eklenen kuyular",
+    unit: "T hücresi zenginleşmesi (× rastgele)", ref: 1, log: true, d: 2 });
+
+  svgs.enrich_cmp = GRP.strip($("#fig_enrich_cmp"), G.enrich_compound, {
+    title: "gün 4 · yalnız T hücresi eklenen kuyular",
+    unit: "T hücresi zenginleşmesi (× rastgele)", ref: 1, log: true, d: 2 });
+
+  svgs.dist = GRP.strip($("#fig_dist"), G.dist_coculture, {
+    title: "gün 4 · T sinyalinin kenara medyan işaretli uzaklığı",
+    unit: "µm (negatif = organoid içinde)", ref: 0, log: false, d: 0 });
+
+  svgs.growth = GRP.curves($("#fig_growth"), G.growth, { unit: "organoid kütlesi (mm²)" });
+
+  svgs.dead = GRP.matched($("#fig_dead"), G.dead_matched,
+    { unit: "ölü hücre sinyali (mm²)", d: 4 });
+
+  svgs.tumour = GRP.matched($("#fig_tumour"), G.tumour_matched,
+    { unit: "tümör sinyali (mm²)", d: 3 });
+
+  // istatistik tabloları
+  const tests = (rows) => FIG.tableFrom(
+    ["karşılaştırma", "n", "AUC", "Cliff δ", "p", "q (BH)"],
+    rows.map(r => [`${r.a} vs ${r.b}`, `${r.n_a} / ${r.n_b}`, fmt(r.auc, 2),
+                   (r.delta > 0 ? "+" : "") + fmt(r.delta, 2),
+                   r.p == null ? "—" : fmt(r.p, 4),
+                   r.q == null ? "—" : fmt(r.q, 4)]));
+  $("#tbl_enrich_coc").replaceChildren(tests(G.enrich_coculture.tests));
+  $("#tbl_enrich_cmp").replaceChildren(tests(G.enrich_compound.tests));
+  $("#tbl_dist").replaceChildren(tests(G.dist_coculture.tests));
+  const matchedTbl = (data, d) => FIG.tableFrom(
+    ["ko-kültür", "T'siz n", "T'li n", "T'siz medyan", "T'li medyan", "oran",
+     "Cliff δ", "p", "q (BH)"],
+    data.rows.map(r => [r.group, r.n_ctrl, r.n_t, fmt(r.med_ctrl, d),
+      fmt(r.med_t, d), fmt(r.ratio, 2), (r.delta > 0 ? "+" : "") + fmt(r.delta, 2),
+      r.p == null ? "—" : fmt(r.p, 4), r.q == null ? "—" : fmt(r.q, 4)]));
+  $("#tbl_dead").replaceChildren(matchedTbl(G.dead_matched, 4));
+  $("#tbl_tumour").replaceChildren(matchedTbl(G.tumour_matched, 3));
+
+  for (const b of document.querySelectorAll("[data-tbl]"))
+    b.addEventListener("click", () => {
+      const box = $("#tbl_" + b.dataset.tbl);
+      b.textContent = box.classList.toggle("on") ? "tabloyu gizle" : "tablo";
+    });
+  for (const b of document.querySelectorAll("[data-svg]"))
+    b.addEventListener("click", () => FIG.download(svgs[b.dataset.svg], `${b.dataset.svg}.svg`));
+})();
+</script>
+</body>
+</html>

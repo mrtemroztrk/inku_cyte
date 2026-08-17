@@ -11,9 +11,9 @@
 __pycache__/
 *.pyc
 
-# Üretilen site: 88 kuyu sayfası + 88 kanıt sayfası, ~280 MB. Kaynağı burada,
-# `python3 atlas/build.py --all` ile yeniden üretiliyor.
-/atlas/site/
+# Üretilen site (atlas/site/, ~470 MB) depoya GİRER: sonuçlar tarayıcıda
+# doğrudan açılsın diye. Kaynağından `python3 atlas/build.py --all` ile
+# yeniden üretilir; her dosya birkaç MB.
 
 # Görüntü dışa aktarımları
 /export/

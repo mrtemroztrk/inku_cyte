@@ -1,0 +1,1054 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>inc_tests atlas — plate</title>
+<style>/* Atlas — bilimsel sunum dili.
+   Kural: hiçbir şey yer değiştirmez. Her figürün yüksekliği sabit, her sayı
+   tabular-nums, her SVG viewBox'lı. Zaman kaydırıcısı oynatılırken sayfanın
+   akışı kıpırdamaz — kayan figür okunamaz figürdür. */
+
+:root {
+  --surface: #fcfcfb;
+  --scene: #0e1013;
+  --ink: #0b0b0b;
+  --ink2: #52514e;
+  --muted: #8a8983;
+  --rule: #e6e5e1;
+  --rule2: #d3d2cd;
+  --green: #1baf7a;
+  --orange: #eb6834;
+  --nir: #4a3aa7;
+  --terr: #b8b7b2;
+  --maxw: 1180px;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 28px 96px; }
+
+a { color: inherit; }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+/* ------------------------------------------------------------------ başlık */
+header.top {
+  border-bottom: 1px solid var(--rule2);
+  margin-bottom: 26px;
+  padding: 22px 0 14px;
+  display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+}
+header.top .well {
+  font-size: 27px; font-weight: 600; letter-spacing: -.015em; line-height: 1;
+}
+header.top .cond { color: var(--ink2); font-size: 14px; }
+header.top .cond b { font-weight: 600; color: var(--ink); }
+header.top .spacer { margin-left: auto; }
+header.top nav { font-size: 13px; color: var(--ink2); display: flex; gap: 14px; }
+header.top nav a { text-decoration: none; border-bottom: 1px solid var(--rule2); }
+header.top nav a:hover { border-color: var(--ink2); }
+
+.flag {
+  display: inline-block; padding: 1px 7px; border-radius: 2px; font-size: 11.5px;
+  border: 1px solid var(--rule2); color: var(--ink2); background: #fff;
+}
+.flag.warn { border-color: #eda100; color: #7a5400; background: #fffaf0; }
+
+/* -------------------------------------------------------------- bölüm başı */
+section { margin: 0 0 44px; }
+h2.sec {
+  font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 4px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--rule);
+}
+p.lead { margin: 10px 0 18px; color: var(--ink2); max-width: 78ch; font-size: 13.5px; }
+
+/* ------------------------------------------------------------------ 3B kat */
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) 276px; gap: 24px; align-items: start; }
+
+.scene {
+  position: relative; background: var(--scene); border-radius: 3px;
+  aspect-ratio: 16 / 10; overflow: hidden; cursor: grab;
+  touch-action: none; outline: none;
+}
+.scene.drag { cursor: grabbing; }
+.scene.pan { cursor: move; }
+.scene canvas, .scene svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.scene svg { pointer-events: none; }
+.scene .hintbar {
+  position: absolute; left: 12px; bottom: 10px; color: #6d7686; font-size: 11px;
+  pointer-events: none; letter-spacing: .01em;
+}
+.scene .viewlabel {
+  position: absolute; right: 12px; bottom: 10px; color: #6d7686; font-size: 11px;
+  pointer-events: none; font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+
+/* sahne araç çubuğu — kamera ve dilimleme; hiçbiri ölçümü değiştirmez */
+.scenebar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 9px; font-size: 12.5px; color: var(--ink2);
+}
+.seg { display: inline-flex; border: 1px solid var(--rule2); border-radius: 2px;
+       overflow: hidden; }
+.seg button {
+  font: inherit; font-size: 12px; border: 0; background: #fff; color: var(--ink2);
+  padding: 3px 10px; cursor: pointer;
+}
+.seg button + button { border-left: 1px solid var(--rule2); }
+.seg button:hover { background: #f2f1ee; color: var(--ink); }
+.sel { display: inline-flex; align-items: center; gap: 6px; }
+.sel select {
+  font: inherit; font-size: 12.5px; color: var(--ink); background: #fff;
+  border: 1px solid var(--rule2); border-radius: 2px; padding: 2px 6px;
+}
+input.cut { width: 110px; accent-color: #2a78d6; }
+.checkbar input.cut { width: 160px; }        /* the z slider steps 17 layers */
+input.cut:disabled { opacity: .4; }
+.cutlabel { font-size: 12px; color: var(--muted); min-width: 64px;
+            font-variant-numeric: tabular-nums; }
+.slabnote { margin: 7px 0 0; font-size: 11.5px; color: var(--muted); min-height: 17px; }
+
+/* denetimler: üç şey var, üçü de gerekli */
+.ctl { margin-top: 12px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.ctl .time { display: flex; align-items: center; gap: 11px; flex: 1 1 340px; min-width: 260px; }
+.ctl input[type=range] { flex: 1; min-width: 0; accent-color: #2a78d6; }
+.ctl .tlabel { font-size: 13px; color: var(--ink2); white-space: nowrap; min-width: 132px; }
+.ctl .tlabel b { color: var(--ink); font-weight: 600; }
+
+.chips { display: flex; gap: 7px; flex-wrap: wrap; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px;
+  border: 1px solid var(--rule2); background: #fff; border-radius: 2px;
+  padding: 3px 9px 3px 7px; cursor: pointer; color: var(--ink2); user-select: none;
+}
+.chip .sw { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.chip[aria-pressed="false"] { opacity: .42; }
+.chip:hover { border-color: var(--muted); }
+
+button.play {
+  border: 1px solid var(--rule2); background: #fff; border-radius: 2px;
+  width: 28px; height: 24px; cursor: pointer; color: var(--ink2); font-size: 11px;
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+}
+button.play:hover { border-color: var(--muted); }
+
+/* --------------------------------------------------------------- sayı kutu */
+.readout { border-top: 2px solid var(--ink); padding-top: 10px; }
+.readout h3 {
+  font-size: 11.5px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 12px;
+}
+.q { margin-bottom: 15px; }
+.q .lbl {
+  font-size: 12px; color: var(--ink2); display: flex; align-items: center; gap: 6px;
+  margin-bottom: 1px;
+}
+.q .sw { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.q .val { font-size: 21px; font-weight: 600; letter-spacing: -.02em; line-height: 1.15; }
+.q .val .u { font-size: 12.5px; font-weight: 400; color: var(--ink2); margin-left: 3px;
+             letter-spacing: 0; }
+.q .sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.q.approx .val::before { content: "≈ "; color: var(--ink2); font-weight: 400; }
+
+.readout .note {
+  border-top: 1px solid var(--rule); padding-top: 9px; margin-top: 4px;
+  font-size: 11.5px; color: var(--muted); line-height: 1.45;
+}
+
+/* ------------------------------------------------------------------ figür */
+.figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px 28px; }
+figure { margin: 0; min-width: 0; }
+figure.wide { grid-column: 1 / -1; }
+
+figcaption {
+  margin-top: 10px; font-size: 12px; color: var(--ink2); line-height: 1.55;
+  max-width: 96ch;
+}
+
+/* Her figür tek bir soruyu yanıtlıyor; soru başlıkla figür arasında durur. */
+.figq {
+  margin: 0 0 10px; font-size: 12.5px; color: var(--ink); font-style: italic;
+  max-width: 90ch;
+}
+.fignum {
+  font-style: normal; font-weight: 600; color: var(--muted); margin-right: 7px;
+  font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase;
+}
+
+.fighead { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+.fighead h3 { margin: 0; font-size: 13.5px; font-weight: 600; letter-spacing: -.005em; }
+.tblblock { margin-top: 26px; }
+.fighead .tools { margin-left: auto; display: flex; gap: 9px; }
+.fighead .tools button {
+  border: 0; background: none; padding: 0; cursor: pointer; font: inherit;
+  font-size: 11.5px; color: var(--muted); border-bottom: 1px solid var(--rule2);
+}
+.fighead .tools button:hover { color: var(--ink2); border-color: var(--ink2); }
+
+.plot { width: 100%; display: block; }
+.plot text { font-family: inherit; }
+
+/* Tablo görünümü. Renk tek başına taşıyıcı olmasın diye her figürde var; ayrıca
+   dergi tablosu biçiminde: üstte başlık, başlığın altında birim satırı, altta
+   dipnot. Yatay taşma tablonun kendi kutusunda kalır, sayfa yana kaymaz. */
+.tbl { display: none; margin-top: 12px; }
+.tbl.on { display: block; }
+.tbl > div { overflow-x: auto; }
+table.data {
+  border-collapse: collapse; font-size: 11.5px; white-space: nowrap;
+  border-top: 1.6px solid var(--ink); border-bottom: 1.6px solid var(--ink);
+  margin-top: 6px; min-width: 100%;
+}
+table.data caption {
+  caption-side: top; text-align: left; font-size: 12px; color: var(--ink2);
+  padding-bottom: 7px; white-space: normal; line-height: 1.5; max-width: 96ch;
+}
+table.data th, table.data td { padding: 4px 14px 4px 0; text-align: right; }
+table.data th:first-child, table.data td:first-child { text-align: left; padding-left: 0; }
+table.data thead th {
+  color: var(--ink); font-weight: 600; border-bottom: 1px solid var(--rule2);
+}
+table.data thead tr.units th {
+  font-weight: 400; color: var(--muted); font-size: 10.5px; padding-top: 0;
+  border-bottom: 1px solid var(--ink2);
+}
+table.data tbody tr + tr td { border-top: 1px solid var(--rule); }
+table.data tbody tr:hover td { background: #f4f3f0; }
+p.tnote {
+  margin: 8px 0 0; font-size: 11px; color: var(--muted); line-height: 1.55;
+  max-width: 96ch; white-space: normal;
+}
+button.csv {
+  margin-top: 9px; border: 0; background: none; padding: 0; cursor: pointer;
+  font: inherit; font-size: 11.5px; color: var(--muted);
+  border-bottom: 1px solid var(--rule2);
+}
+button.csv:hover { color: var(--ink2); border-color: var(--ink2); }
+.chip.out { border-style: dashed; }
+
+/* ------------------------------------------------------------------ yöntem */
+details.method { border-top: 1px solid var(--rule2); padding-top: 14px; }
+details.method > summary {
+  cursor: pointer; font-size: 12px; font-weight: 600; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--muted); list-style: none;
+}
+details.method > summary::-webkit-details-marker { display: none; }
+details.method > summary::before { content: "▸ "; }
+details.method[open] > summary::before { content: "▾ "; }
+details.method .body {
+  margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px 34px; font-size: 12.5px; color: var(--ink2); line-height: 1.6;
+}
+details.method h4 { margin: 0 0 5px; font-size: 12.5px; color: var(--ink); font-weight: 600; }
+details.method p { margin: 0 0 9px; }
+details.method code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; }
+
+/* ------------------------------------------------------------------- plaka */
+.plate { display: grid; grid-template-columns: 22px repeat(12, minmax(0, 1fr)); gap: 3px; }
+.plate .hd { font-size: 11px; color: var(--muted); text-align: center; line-height: 20px; }
+.plate .rw { font-size: 11px; color: var(--muted); text-align: center; }
+.wellbox {
+  aspect-ratio: 1; border-radius: 2px; position: relative; display: block;
+  text-decoration: none; border: 1px solid transparent; min-width: 0;
+}
+.wellbox:hover { outline: 2px solid var(--ink); outline-offset: 1px; z-index: 2; }
+.wellbox.na { background: repeating-linear-gradient(45deg, #f2f1ee 0 4px, #fff 4px 8px); }
+.wellbox.ex::after {
+  content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(45deg, rgba(0,0,0,.28) 0 2px, transparent 2px 5px);
+}
+.wellbox .tc {
+  position: absolute; right: 2px; top: 2px; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--ink); opacity: .55;
+}
+.platebar { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+.platebar label { font-size: 12.5px; color: var(--ink2); }
+.platebar select {
+  font: inherit; font-size: 13px; color: var(--ink); background: #fff;
+  border: 1px solid var(--rule2); border-radius: 2px; padding: 3px 7px;
+}
+.scalestrip { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); }
+.scalestrip .bar { width: 108px; height: 9px; border-radius: 1px; }
+
+#tip {
+  position: fixed; pointer-events: none; z-index: 9; background: #fff;
+  border: 1px solid var(--rule2); border-radius: 2px; padding: 7px 10px;
+  font-size: 12px; line-height: 1.5; box-shadow: 0 2px 10px rgba(0,0,0,.09);
+  max-width: 260px;
+}
+#tip .k { color: var(--muted); }
+#tip b { font-weight: 600; }
+
+@media (max-width: 940px) {
+  .stage { grid-template-columns: minmax(0, 1fr); }
+  .figs, details.method .body { grid-template-columns: minmax(0, 1fr); }
+  .wrap { padding: 0 18px 72px; }
+}
+
+@media print {
+  .ctl, .fighead .tools, header.top nav { display: none; }
+  .wrap { max-width: none; }
+  figure, section { break-inside: avoid; }
+}
+
+/* ------------------------------------------- segmentasyon kanıt sayfası */
+.checkbar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-bottom: 14px; font-size: 12.5px; color: var(--ink2);
+}
+/* Katman çubuğu: satırın tamamı, iri tutamak, işaretli kademeler. Bir yığında
+   gezinmek bu sayfanın ana hareketi; küçük bir kaydırıcıda 17 kademeyi
+   tutturmak elde titremeye dönüşüyordu. */
+.zrow {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 12px;
+  font-size: 12.5px; color: var(--ink2);
+}
+.zbar { flex: 1 1 320px; min-width: 220px; padding: 2px 0 0; }
+.zbar input[type=range] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 26px;
+  margin: 0; background: transparent; cursor: pointer; display: block;
+}
+.zbar input[type=range]:disabled { opacity: .35; cursor: default; }
+.zbar input[type=range]::-webkit-slider-runnable-track {
+  height: 6px; background: #d9d8d3; border-radius: 3px;
+}
+.zbar input[type=range]::-moz-range-track {
+  height: 6px; background: #d9d8d3; border-radius: 3px;
+}
+.zbar input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 22px; height: 22px;
+  margin-top: -8px; border-radius: 50%; background: #2a78d6;
+  border: 3px solid #fff; box-shadow: 0 0 0 1px #2a78d6, 0 1px 3px rgba(0,0,0,.25);
+}
+.zbar input[type=range]::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%; background: #2a78d6;
+  border: 3px solid #fff; box-shadow: 0 0 0 1px #2a78d6, 0 1px 3px rgba(0,0,0,.25);
+}
+.zbar input[type=range]:focus-visible { outline: 2px solid #2a78d6; outline-offset: 2px; }
+/* kademe yazıları: tutamak merkezleri çubuğun 11 px içinden başlar ve biter */
+.zticklabels {
+  display: flex; justify-content: space-between; padding: 0 11px; margin-top: -2px;
+  font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.zticklabels span { flex: 0 0 0; width: 0; display: flex; justify-content: center;
+                    white-space: nowrap; }
+.zlabel { font-size: 12.5px; color: var(--ink2); min-width: 150px;
+          font-variant-numeric: tabular-nums; }
+.zlabel b { color: var(--ink); }
+#leftfig .scene { aspect-ratio: 520 / 704; }
+.chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.chk input { accent-color: #2a78d6; }
+
+.checkgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.checkgrid figure { margin: 0; min-width: 0; }
+.imgbox {
+  background: var(--scene); border-radius: 3px; overflow: hidden;
+  aspect-ratio: 520 / 704; display: flex; align-items: center; justify-content: center;
+}
+.imgbox img { width: 100%; height: 100%; object-fit: contain; display: block;
+              image-rendering: auto; }
+.checkgrid .scene { aspect-ratio: 520 / 704; }
+
+@media (max-width: 940px) {
+  .checkgrid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Kanıt paneli: bir katmana tıklanınca o katmanın gerçek fotoğrafı. Sayfa
+   akışını itmemesi için sabit yükseklikte ve kapatılabilir. */
+.proof[hidden] { display: none; }   /* display:grid, [hidden]'ı ezerdi */
+.proof {
+  margin-top: 12px; display: grid; grid-template-columns: 176px minmax(0, 1fr);
+  gap: 14px; align-items: start; border: 1px solid var(--rule2);
+  border-left: 3px solid var(--ink); padding: 12px 14px; position: relative;
+  background: #fff;
+}
+.proof img {
+  width: 176px; display: block; background: var(--scene); border-radius: 2px;
+}
+.proof p { margin: 0; font-size: 11.5px; color: var(--ink2); line-height: 1.55; }
+.proof a { color: #2a78d6; }
+.proofclose {
+  position: absolute; right: 8px; top: 6px; border: 0; background: none;
+  font-size: 16px; line-height: 1; color: var(--muted); cursor: pointer; padding: 2px 4px;
+}
+.proofclose:hover { color: var(--ink); }
+
+/* Sunucuda çizilen (matplotlib) yayın figürleri: gerçek boyutunda, gerilmeden. */
+img.pubfig {
+  display: block; width: 100%; max-width: 880px; height: auto;
+  margin: 2px 0 0;
+}
+.fighead .tools a.dl {
+  font-size: 11.5px; color: var(--muted); text-decoration: none;
+  border-bottom: 1px solid var(--rule2);
+}
+.fighead .tools a.dl:hover { color: var(--ink2); border-color: var(--ink2); }
+
+/* Bindirme kipi: fotoğraf sahnenin üstünde, ekran (screen) harmanıyla — iki
+   parlak nokta üst üste gelince toplanır, kayma varsa iki ayrı nokta görünür. */
+.checkgrid.overlay { grid-template-columns: minmax(0, 1fr); }
+.checkgrid.overlay .scene { max-width: 620px; margin: 0 auto; }
+.scene > img#ovl {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: fill; mix-blend-mode: screen; pointer-events: none;
+}
+#mixwrap[hidden] { display: none; }
+#mixwrap input.cut { width: 120px; }
+.scene > img#ovl { transform-origin: 50% 50%; will-change: transform; }
+/* Sunumda projeksiyondan okunabilsin diye bindirme kipi daha büyük. */
+.checkgrid.overlay .scene { max-width: 760px; }
+
+/* Katman sırası. Scene kurucusu canvas ile svg'yi kabın SONUNA ekliyor, yani
+   DOM sırasında bindirilen fotoğrafın üstüne düşüyorlar; canvas opak olduğu için
+   fotoğrafı tamamen gizliyordu. Sıra burada açıkça sabitlendi. */
+.scene canvas { z-index: 1; }
+.scene > img#ovl { z-index: 2; }
+.scene svg { z-index: 3; }
+.scene .hintbar, .scene .viewlabel { z-index: 4; }
+.barlbl { font-size: 12.5px; color: var(--muted); }
+.imgbox canvas { width: 100%; height: 100%; object-fit: contain; display: block; }
+.checkbar .chips .chip { padding: 2px 8px 2px 6px; }
+
+/* "?" — bir sayının nasıl hesaplandığını gösteren pencere. */
+button.qmark {
+  border: 1px solid var(--rule2); background: #fff; color: var(--muted);
+  border-radius: 50%; width: 15px; height: 15px; line-height: 1; padding: 0;
+  font-size: 10.5px; cursor: pointer; vertical-align: 1px;
+}
+button.qmark:hover { border-color: var(--ink); color: var(--ink); }
+dialog#explain {
+  max-width: 640px; border: 1px solid var(--rule2); border-radius: 3px;
+  padding: 22px 26px 18px; color: var(--ink); background: #fff;
+  box-shadow: 0 10px 40px rgba(0,0,0,.18);
+}
+dialog#explain::backdrop { background: rgba(20,20,18,.42); }
+dialog#explain h3 { margin: 0 0 10px; font-size: 15px; }
+dialog#explain .exform {
+  margin: 0 0 14px; padding: 8px 11px; background: #f4f3f0; border-radius: 2px;
+  font-size: 12.5px;
+}
+dialog#explain .exform code { font-family: ui-monospace, Menlo, Consolas, monospace; }
+dialog#explain ol { margin: 0 0 14px; padding-left: 20px; font-size: 12.5px;
+                    color: var(--ink2); line-height: 1.6; }
+dialog#explain ol li { margin-bottom: 5px; }
+dialog#explain .excav {
+  margin: 0 0 16px; font-size: 12.5px; color: var(--ink2); line-height: 1.6;
+  border-left: 3px solid #eda100; padding-left: 11px;
+}
+dialog#explain button.wide {
+  width: 100%; font: inherit; font-size: 13px; padding: 6px;
+  border: 1px solid var(--rule2); background: #fff; border-radius: 2px;
+  cursor: pointer;
+}
+.proofbar { display: flex; align-items: center; gap: 9px; margin-top: 9px; }
+.proofbar input.cut { width: 150px; }
+.proof img { width: 176px; }
+
+/* Grup sayfası: figür altı "hangi kuyular" bloğu, tek cümlelik çıkarım, deney
+   düzeni tablosu. */
+.takeaway { margin: 8px 0 4px; font-size: 13px; color: var(--ink);
+            border-left: 3px solid var(--ink); padding-left: 10px; line-height: 1.5; }
+.wellsblock { margin: 6px 0 4px; font-size: 11.5px; color: var(--ink2); line-height: 1.55; }
+.wellsblock ul { margin: 2px 0 0; padding-left: 16px; }
+.wellsblock li { margin-bottom: 2px; }
+table.cat { border-collapse: collapse; font-size: 12px; margin: 8px 0 4px; width: 100%; }
+table.cat th, table.cat td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+table.cat th { font-weight: 600; color: var(--ink2); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+#tsel { font: inherit; font-size: 13px; padding: 3px 6px; }
+.metricdesc { margin: 6px 0 12px; font-size: 13px; color: var(--ink2); max-width: 760px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <span class="well">inc_tests atlas</span>
+  <span class="cond">PDA 30364 · T-cell infiltration · 88 wells × 13 timepoints ·
+  Incucyte 4×</span>
+  <span class="spacer"></span>
+  <nav><a href="groups.html">group comparisons →</a></nav>
+</header>
+
+<section>
+  <h2 class="sec">Plate</h2>
+  <p class="lead">Click a well to open its 3D view, its signal-by-layer profile,
+  time course and tables. Colour shows the measure selected below, at the last
+  timepoint (day 4). Hatched wells failed QC; the cross-hatched column was not
+  imaged. The dot in the corner marks wells that received T cells.</p>
+
+  <div class="platebar">
+    <label for="metric">colour by</label>
+    <select id="metric">
+      <option value="tcells">T cells (≈ count)</option>
+      <option value="tcell_peak_z">T-cell peak layer</option>
+      <option value="organoid_mm2">organoid territory (mm²)</option>
+      <option value="growth">growth (day 4 / day 0)</option>
+      <option value="dead_mm2">dead-cell signal (mm²)</option>
+    </select>
+    <div class="scalestrip"><span id="slo">—</span>
+      <span class="bar" id="sbar"></span><span id="shi">—</span></div>
+  </div>
+  <p class="lead metricdesc" id="metricdesc"></p>
+
+  <div class="plate" id="plate"></div>
+</section>
+
+<section>
+  <h2 class="sec">How to read the numbers in this atlas</h2>
+  <div class="figs">
+    <div>
+      <p class="lead"><b>Signal areas are measured; cell counts are derived.</b>
+      Everything reported in mm² or as a voxel count is a direct measurement of
+      the segmented image. A T-cell count is an estimate: signal area divided by
+      90.8 µm² per cell, a scale calibrated from the seeding
+      numbers and validated three ways (it implies an equivalent cell diameter of
+      10.75 µm, the real size of a T cell, and the four co-culture
+      groups reproduce it independently). Derived numbers are always written
+      with ≈.</p>
+      <p class="lead"><b>The tumour is never converted to cells.</b> The same
+      calculation applied to the 2000 seeded PDA cells implies a cell smaller than
+      a T cell, which is impossible — the green stain misses most organoids. Tumour
+      is reported as signal area and signal volume only.</p>
+    </div>
+    <div>
+      <p class="lead"><b>Position is reported by layer only.</b> Each well says
+      how much of each signal sits in each of its 17 z layers and how that changes
+      over four days. Nothing is claimed about where cells are relative to the
+      organoid — the organoid's surface in z is not known, so “inside”, “outside”
+      and “distance to the boundary” are not computed.</p>
+      <p class="lead"><b>What is not available:</b> µm³ volumes and absolute depth,
+      because the z step appears in no file — the TIFF tags carry no optical fields
+      and the plate XML contains no optical entry at all. Macrophages and CAFs have
+      no fluorescent label and cannot be located in the image; which wells contain
+      them is known only from the plate map.</p>
+    </div>
+  </div>
+</section>
+
+</div>
+<dialog id="explain"><div class="exbody"></div>
+  <form method="dialog"><button class="wide">close</button></form></dialog>
+<script>window.SUMM={"wells":[{"well":"A01","row":"A","col":1,"coculture":"PDA","compound":"control","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":0.6621,"growth":4.91,"tcells":1206.8,"tcell_peak_z":2,"dead_mm2":0.01306,"dome_dominant":false,"dome_r90_um":614.47},{"well":"A02","row":"A","col":2,"coculture":"PDA+CAF","compound":"control","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":6.361,"growth":1.59,"tcells":534.6,"tcell_peak_z":3,"dead_mm2":0.08104,"dome_dominant":true,"dome_r90_um":1558.58},{"well":"A03","row":"A","col":3,"coculture":"PDA+MAC","compound":"control","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":5.8002,"growth":2.32,"tcells":332.6,"tcell_peak_z":3,"dead_mm2":0.03889,"dome_dominant":true,"dome_r90_um":1665.67},{"well":"A04","row":"A","col":4,"coculture":"PDA+CAF+MAC","compound":"control","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":4.9369,"growth":0.94,"tcells":218.6,"tcell_peak_z":3,"dead_mm2":0.00017,"dome_dominant":true,"dome_r90_um":1099.62},{"well":"A05","row":"A","col":5,"coculture":"PDA","compound":"control","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":1.5656,"growth":4.23,"tcells":1079.8,"tcell_peak_z":3,"dead_mm2":0.05528,"dome_dominant":false,"dome_r90_um":1086.47},{"well":"A06","row":"A","col":6,"coculture":"PDA+CAF","compound":"low kras+Src","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":6.8484,"growth":1.9,"tcells":578.6,"tcell_peak_z":2,"dead_mm2":0.12077,"dome_dominant":true,"dome_r90_um":1604.55},{"well":"A07","row":"A","col":7,"coculture":"PDA+MAC","compound":"high kras+Src","concentration":100.0,"has_tcells":true,"excluded":false,"organoid_mm2":3.2171,"growth":1.08,"tcells":3221.1,"tcell_peak_z":16,"dead_mm2":0.00801,"dome_dominant":false,"dome_r90_um":1216.27},{"well":"A08","row":"A","col":8,"coculture":"PDA+CAF+MAC","compound":"high kras+Src","concentration":100.0,"has_tcells":true,"excluded":false,"organoid_mm2":3.1786,"growth":0.84,"tcells":1029.7,"tcell_peak_z":3,"dead_mm2":5e-05,"dome_dominant":false,"dome_r90_um":1146.94},{"well":"A10","row":"A","col":10,"coculture":"PDA+CAF","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":true,"organoid_mm2":0.0,"growth":0.0,"tcells":0.0,"tcell_peak_z":null,"dead_mm2":0.0,"dome_dominant":false,"dome_r90_um":null},{"well":"A11","row":"A","col":11,"coculture":"PDA+MAC","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":true,"organoid_mm2":0.0,"growth":null,"tcells":131.6,"tcell_peak_z":3,"dead_mm2":0.0,"dome_dominant":false,"dome_r90_um":null},{"well":"A12","row":"A","col":12,"coculture":"PDA+CAF+MAC","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":3.2917,"growth":3.07,"tcells":1037.3,"tcell_peak_z":4,"dead_mm2":0.0,"dome_dominant":false,"dome_r90_um":1032.4},{"well":"B01","row":"B","col":1,"coculture":"PDA","compound":"control","concentration":0.01,"has_tcells":true,"excluded":false,"organoid_mm2":2.8424,"growth":3.46,"tcells":3977.2,"tcell_peak_z":3,"dead_mm2":0.064,"dome_dominant":false,"dome_r90_um":661.79},{"well":"B02","row":"B","col":2,"coculture":"PDA+CAF","compound":"control","concentration":0.01,"has_tcells":true,"excluded":false,"organoid_mm2":6.8049,"growth":1.7,"tcells":2837.9,"tcell_peak_z":4,"dead_mm2":0.00333,"dome_dominant":true,"dome_r90_um":1676.63},{"well":"B03","row":"B","col":3,"coculture":"PDA+MAC","compound":"control","concentration":0.01,"has_tcells":true,"excluded":false,"organoid_mm2":10.896,"growth":4.55,"tcells":2181.3,"tcell_peak_z":4,"dead_mm2":0.00236,"dome_dominant":true,"dome_r90_um":1925.51},{"well":"B04","row":"B","col":4,"coculture":"PDA+CAF+MAC","compound":"control","concentration":0.01,"has_tcells":true,"excluded":false,"organoid_mm2":4.2892,"growth":0.57,"tcells":1072.2,"tcell_peak_z":3,"dead_mm2":0.00103,"dome_dominant":true,"dome_r90_um":1052.53},{"well":"B05","row":"B","col":5,"coculture":"PDA","compound":"low kras+Src","concentration":10.0,"has_tcells":true,"excluded":false,"organoid_mm2":4.2607,"growth":3.22,"tcells":3983.8,"tcell_peak_z":4,"dead_mm2":0.0229,"dome_dominant":false,"dome_r90_um":783.29},{"well":"B06","row":"B","col":6,"coculture":"PDA+CAF","compound":"Src low","concentration":50.0,"has_tcells":true,"excluded":false,"organoid_mm2":5.4522,"growth":1.34,"tcells":2164.2,"tcell_peak_z":3,"dead_mm2":0.01011,"dome_dominant":true,"dome_r90_um":1607.03},{"well":"B07","row":"B","col":7,"coculture":"PDA+MAC","compound":"kras low","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":4.2435,"growth":1.98,"tcells":417.2,"tcell_peak_z":4,"dead_mm2":0.01134,"dome_dominant":true,"dome_r90_um":1387.82},{"well":"B08","row":"B","col":8,"coculture":"PDA+CAF+MAC","compound":"kras low","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":3.2675,"growth":0.47,"tcells":77.2,"tcell_peak_z":3,"dead_mm2":0.00045,"dome_dominant":true,"dome_r90_um":933.02},{"well":"B10","row":"B","col":10,"coculture":"PDA+CAF","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":true,"organoid_mm2":0.0,"growth":null,"tcells":141.5,"tcell_peak_z":3,"dead_mm2":0.0,"dome_dominant":false,"dome_r90_um":null},{"well":"B11","row":"B","col":11,"coculture":"PDA+MAC","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":2.9521,"growth":6.53,"tcells":798.7,"tcell_peak_z":4,"dead_mm2":0.0,"dome_dominant":false,"dome_r90_um":929.56},{"well":"B12","row":"B","col":12,"coculture":"PDA+CAF+MAC","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":3.3313,"growth":4.13,"tcells":837.9,"tcell_peak_z":6,"dead_mm2":2e-05,"dome_dominant":true,"dome_r90_um":1293.49},{"well":"C01","row":"C","col":1,"coculture":"PDA","compound":"control","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":2.7075,"growth":4.63,"tcells":790.3,"tcell_peak_z":2,"dead_mm2":0.13894,"dome_dominant":false,"dome_r90_um":905.08},{"well":"C02","row":"C","col":2,"coculture":"PDA+CAF","compound":"control","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":4.1411,"growth":4.17,"tcells":947.5,"tcell_peak_z":4,"dead_mm2":0.02456,"dome_dominant":true,"dome_r90_um":1181.48},{"well":"C03","row":"C","col":3,"coculture":"PDA+MAC","compound":"kras low","concentration":10.0,"has_tcells":true,"excluded":false,"organoid_mm2":10.896,"growth":3.28,"tcells":2251.4,"tcell_peak_z":3,"dead_mm2":0.00145,"dome_dominant":true,"dome_r90_um":1925.51},{"well":"C04","row":"C","col":4,"coculture":"PDA+CAF+MAC","compound":"kras low","concentration":10.0,"has_tcells":true,"excluded":false,"organoid_mm2":3.6971,"growth":0.63,"tcells":1619.3,"tcell_peak_z":4,"dead_mm2":0.0002,"dome_dominant":true,"dome_r90_um":991.9},{"well":"C05","row":"C","col":5,"coculture":"PDA","compound":"high kras+Src","concentration":100.0,"has_tcells":true,"excluded":false,"organoid_mm2":2.869,"growth":2.84,"tcells":3181.7,"tcell_peak_z":4,"dead_mm2":0.00631,"dome_dominant":false,"dome_r90_um":1514.36},{"well":"C06","row":"C","col":6,"coculture":"PDA+CAF","compound":"Src high","concentration":200.0,"has_tcells":true,"excluded":false,"organoid_mm2":4.813,"growth":0.92,"tcells":2511.3,"tcell_peak_z":3,"dead_mm2":0.00243,"dome_dominant":true,"dome_r90_um":1509.11},{"well":"C07","row":"C","col":7,"coculture":"PDA+MAC","compound":"kras low","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":3.6703,"growth":1.52,"tcells":228.9,"tcell_peak_z":3,"dead_mm2":0.00868,"dome_dominant":false,"dome_r90_um":1422.27},{"well":"C08","row":"C","col":8,"coculture":"PDA+CAF+MAC","compound":"kras low","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":3.7138,"growth":0.72,"tcells":147.1,"tcell_peak_z":3,"dead_mm2":0.0009,"dome_dominant":true,"dome_r90_um":971.5},{"well":"C10","row":"C","col":10,"coculture":"PDA+CAF","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":3.939,"growth":7.22,"tcells":1078.7,"tcell_peak_z":10,"dead_mm2":0.0,"dome_dominant":true,"dome_r90_um":1251.04},{"well":"C11","row":"C","col":11,"coculture":"PDA+MAC","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":3.9092,"growth":7.35,"tcells":737.2,"tcell_peak_z":4,"dead_mm2":0.0,"dome_dominant":true,"dome_r90_um":1349.52},{"well":"C12","row":"C","col":12,"coculture":"PDA+CAF+MAC","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":2.817,"growth":5.38,"tcells":924.1,"tcell_peak_z":5,"dead_mm2":0.0,"dome_dominant":true,"dome_r90_um":1334.35},{"well":"D01","row":"D","col":1,"coculture":"PDA","compound":"kras low","concentration":10.0,"has_tcells":true,"excluded":false,"organoid_mm2":2.5887,"growth":2.37,"tcells":3619.6,"tcell_peak_z":16,"dead_mm2":0.03184,"dome_dominant":false,"dome_r90_um":877.2},{"well":"D02","row":"D","col":2,"coculture":"PDA+CAF","compound":"control","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":3.37,"growth":4.54,"tcells":963.8,"tcell_peak_z":4,"dead_mm2":0.03102,"dome_dominant":false,"dome_r90_um":1246.17},{"well":"D03","row":"D","col":3,"coculture":"PDA+MAC","compound":"kras high","concentration":100.0,"has_tcells":true,"excluded":true,"organoid_mm2":10.896,"growth":4.17,"tcells":1861.0,"tcell_peak_z":3,"dead_mm2":0.00255,"dome_dominant":true,"dome_r90_um":1925.51},{"well":"D04","row":"D","col":4,"coculture":"PDA+CAF+MAC","compound":"kras high","concentration":100.0,"has_tcells":true,"excluded":false,"organoid_mm2":4.8107,"growth":1.64,"tcells":603.9,"tcell_peak_z":4,"dead_mm2":0.00018,"dome_dominant":true,"dome_r90_um":1117.17},{"well":"D05","row":"D","col":5,"coculture":"PDA","compound":"low kras+Src","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":1.788,"growth":3.84,"tcells":1008.5,"tcell_peak_z":3,"dead_mm2":0.02472,"dome_dominant":false,"dome_r90_um":1090.97},{"well":"D06","row":"D","col":6,"coculture":"PDA+CAF","compound":"low kras+Src","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":6.2935,"growth":1.35,"tcells":533.5,"tcell_peak_z":2,"dead_mm2":0.0113,"dome_dominant":true,"dome_r90_um":1384.66},{"well":"D07","row":"D","col":7,"coculture":"PDA+MAC","compound":"Src low","concentration":50.0,"has_tcells":true,"excluded":false,"organoid_mm2":2.8381,"growth":1.0,"tcells":2638.9,"tcell_peak_z":3,"dead_mm2":0.00504,"dome_dominant":false,"dome_r90_um":957.16},{"well":"D08","row":"D","col":8,"coculture":"PDA+CAF+MAC","compound":"Src low","concentration":50.0,"has_tcells":true,"excluded":false,"organoid_mm2":3.5073,"growth":0.48,"tcells":1143.2,"tcell_peak_z":3,"dead_mm2":0.00068,"dome_dominant":true,"dome_r90_um":974.53},{"well":"D10","row":"D","col":10,"coculture":"PDA+CAF","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":2.899,"growth":4.58,"tcells":1264.5,"tcell_peak_z":5,"dead_mm2":0.0,"dome_dominant":false,"dome_r90_um":1103.19},{"well":"D11","row":"D","col":11,"coculture":"PDA+MAC","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":3.8771,"growth":6.06,"tcells":869.9,"tcell_peak_z":4,"dead_mm2":0.0,"dome_dominant":true,"dome_r90_um":1370.13},{"well":"D12","row":"D","col":12,"coculture":"PDA+CAF+MAC","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":3.2104,"growth":3.57,"tcells":600.6,"tcell_peak_z":5,"dead_mm2":0.0,"dome_dominant":true,"dome_r90_um":1295.08},{"well":"E01","row":"E","col":1,"coculture":"PDA","compound":"kras high","concentration":100.0,"has_tcells":true,"excluded":false,"organoid_mm2":2.2485,"growth":2.61,"tcells":3509.6,"tcell_peak_z":3,"dead_mm2":0.02797,"dome_dominant":false,"dome_r90_um":897.83},{"well":"E02","row":"E","col":2,"coculture":"PDA+CAF","compound":"kras low","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":4.4965,"growth":3.51,"tcells":753.3,"tcell_peak_z":4,"dead_mm2":0.01242,"dome_dominant":true,"dome_r90_um":1181.63},{"well":"E03","row":"E","col":3,"coculture":"PDA+MAC","compound":"Src low","concentration":50.0,"has_tcells":false,"excluded":false,"organoid_mm2":10.896,"growth":3.66,"tcells":332.2,"tcell_peak_z":3,"dead_mm2":0.02667,"dome_dominant":true,"dome_r90_um":1925.51},{"well":"E04","row":"E","col":4,"coculture":"PDA+CAF+MAC","compound":"Src low","concentration":50.0,"has_tcells":false,"excluded":false,"organoid_mm2":4.3647,"growth":0.61,"tcells":124.3,"tcell_peak_z":3,"dead_mm2":0.00175,"dome_dominant":true,"dome_r90_um":1173.43},{"well":"E05","row":"E","col":5,"coculture":"PDA","compound":"control","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":1.6943,"growth":6.36,"tcells":959.5,"tcell_peak_z":3,"dead_mm2":0.0149,"dome_dominant":false,"dome_r90_um":730.04},{"well":"E06","row":"E","col":6,"coculture":"PDA+CAF","compound":"high kras+Src","concentration":100.0,"has_tcells":true,"excluded":false,"organoid_mm2":3.7819,"growth":1.67,"tcells":2030.0,"tcell_peak_z":3,"dead_mm2":0.00352,"dome_dominant":false,"dome_r90_um":1160.12},{"well":"E07","row":"E","col":7,"coculture":"PDA+MAC","compound":"low kras+Src","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":10.896,"growth":4.46,"tcells":319.2,"tcell_peak_z":3,"dead_mm2":0.01515,"dome_dominant":true,"dome_r90_um":1925.51},{"well":"E08","row":"E","col":8,"coculture":"PDA+CAF+MAC","compound":"Src low","concentration":50.0,"has_tcells":false,"excluded":false,"organoid_mm2":4.2845,"growth":0.7,"tcells":94.3,"tcell_peak_z":2,"dead_mm2":0.00147,"dome_dominant":true,"dome_r90_um":1118.4},{"well":"E10","row":"E","col":10,"coculture":"PDA+CAF","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":3.8354,"growth":6.29,"tcells":1082.7,"tcell_peak_z":5,"dead_mm2":0.0,"dome_dominant":true,"dome_r90_um":1497.5},{"well":"E11","row":"E","col":11,"coculture":"PDA+MAC","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":2.6486,"growth":6.47,"tcells":869.8,"tcell_peak_z":4,"dead_mm2":0.0,"dome_dominant":false,"dome_r90_um":1097.3},{"well":"E12","row":"E","col":12,"coculture":"PDA+CAF+MAC","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":4.2552,"growth":2.92,"tcells":648.3,"tcell_peak_z":7,"dead_mm2":0.0,"dome_dominant":true,"dome_r90_um":1195.99},{"well":"F01","row":"F","col":1,"coculture":"PDA","compound":"Src low","concentration":50.0,"has_tcells":true,"excluded":false,"organoid_mm2":2.9368,"growth":3.64,"tcells":3945.2,"tcell_peak_z":3,"dead_mm2":0.0681,"dome_dominant":false,"dome_r90_um":774.94},{"well":"F02","row":"F","col":2,"coculture":"PDA+CAF","compound":"kras low","concentration":10.0,"has_tcells":true,"excluded":false,"organoid_mm2":5.8332,"growth":1.24,"tcells":2157.8,"tcell_peak_z":3,"dead_mm2":0.00647,"dome_dominant":true,"dome_r90_um":1646.55},{"well":"F03","row":"F","col":3,"coculture":"PDA+MAC","compound":"Src high","concentration":200.0,"has_tcells":true,"excluded":false,"organoid_mm2":10.896,"growth":4.32,"tcells":2131.7,"tcell_peak_z":13,"dead_mm2":0.00175,"dome_dominant":true,"dome_r90_um":1925.51},{"well":"F04","row":"F","col":4,"coculture":"PDA+CAF+MAC","compound":"Src high","concentration":200.0,"has_tcells":true,"excluded":false,"organoid_mm2":5.2548,"growth":0.98,"tcells":1214.3,"tcell_peak_z":3,"dead_mm2":0.00023,"dome_dominant":true,"dome_r90_um":1351.14},{"well":"F05","row":"F","col":5,"coculture":"PDA","compound":"kras low","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":1.252,"growth":4.42,"tcells":806.9,"tcell_peak_z":3,"dead_mm2":0.00606,"dome_dominant":false,"dome_r90_um":736.57},{"well":"F06","row":"F","col":6,"coculture":"PDA+CAF","compound":"kras low","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":6.099,"growth":0.96,"tcells":325.7,"tcell_peak_z":2,"dead_mm2":0.00994,"dome_dominant":true,"dome_r90_um":1391.36},{"well":"F07","row":"F","col":7,"coculture":"PDA+MAC","compound":"low kras+Src","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":10.896,"growth":3.48,"tcells":382.6,"tcell_peak_z":3,"dead_mm2":0.015,"dome_dominant":true,"dome_r90_um":1925.51},{"well":"F08","row":"F","col":8,"coculture":"PDA+CAF+MAC","compound":"low kras+Src","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":3.5135,"growth":0.43,"tcells":154.3,"tcell_peak_z":3,"dead_mm2":0.00075,"dome_dominant":true,"dome_r90_um":980.36},{"well":"F10","row":"F","col":10,"coculture":"PDA+CAF","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":0.1812,"growth":0.91,"tcells":2454.5,"tcell_peak_z":5,"dead_mm2":0.0,"dome_dominant":false,"dome_r90_um":120.97},{"well":"F11","row":"F","col":11,"coculture":"PDA+MAC","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":0.1473,"growth":1.03,"tcells":1982.0,"tcell_peak_z":4,"dead_mm2":0.0,"dome_dominant":false,"dome_r90_um":127.97},{"well":"F12","row":"F","col":12,"coculture":"PDA+CAF+MAC","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":0.5841,"growth":1.39,"tcells":2254.3,"tcell_peak_z":7,"dead_mm2":0.0,"dome_dominant":false,"dome_r90_um":262.21},{"well":"G01","row":"G","col":1,"coculture":"PDA","compound":"Src high","concentration":200.0,"has_tcells":true,"excluded":false,"organoid_mm2":2.7902,"growth":3.73,"tcells":2789.0,"tcell_peak_z":2,"dead_mm2":0.04821,"dome_dominant":false,"dome_r90_um":1005.05},{"well":"G02","row":"G","col":2,"coculture":"PDA+CAF","compound":"kras high","concentration":100.0,"has_tcells":true,"excluded":false,"organoid_mm2":4.1528,"growth":0.79,"tcells":2118.4,"tcell_peak_z":3,"dead_mm2":0.01447,"dome_dominant":true,"dome_r90_um":1446.69},{"well":"G03","row":"G","col":3,"coculture":"PDA+MAC","compound":"low kras+Src","concentration":10.0,"has_tcells":true,"excluded":false,"organoid_mm2":10.896,"growth":4.94,"tcells":1832.3,"tcell_peak_z":3,"dead_mm2":0.00813,"dome_dominant":true,"dome_r90_um":1925.51},{"well":"G04","row":"G","col":4,"coculture":"PDA+CAF+MAC","compound":"low kras+Src","concentration":10.0,"has_tcells":true,"excluded":false,"organoid_mm2":5.2809,"growth":1.31,"tcells":1140.7,"tcell_peak_z":3,"dead_mm2":0.0021,"dome_dominant":true,"dome_r90_um":1197.16},{"well":"G05","row":"G","col":5,"coculture":"PDA","compound":"control","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":2.2661,"growth":1.61,"tcells":743.4,"tcell_peak_z":3,"dead_mm2":0.01658,"dome_dominant":false,"dome_r90_um":581.42},{"well":"G06","row":"G","col":6,"coculture":"PDA+CAF","compound":"low kras+Src","concentration":10.0,"has_tcells":true,"excluded":false,"organoid_mm2":5.442,"growth":1.47,"tcells":1833.7,"tcell_peak_z":3,"dead_mm2":0.01019,"dome_dominant":true,"dome_r90_um":1258.48},{"well":"G07","row":"G","col":7,"coculture":"PDA+MAC","compound":"kras low","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":4.6493,"growth":1.49,"tcells":268.0,"tcell_peak_z":13,"dead_mm2":0.01073,"dome_dominant":true,"dome_r90_um":1566.41},{"well":"G08","row":"G","col":8,"coculture":"PDA+CAF+MAC","compound":"low kras+Src","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":3.6503,"growth":0.57,"tcells":220.8,"tcell_peak_z":2,"dead_mm2":0.00375,"dome_dominant":true,"dome_r90_um":1036.33},{"well":"G10","row":"G","col":10,"coculture":"PDA+CAF","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":0.0983,"growth":0.69,"tcells":2626.1,"tcell_peak_z":5,"dead_mm2":0.0,"dome_dominant":false,"dome_r90_um":57.9},{"well":"G11","row":"G","col":11,"coculture":"PDA+MAC","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":0.0888,"growth":0.88,"tcells":1815.4,"tcell_peak_z":5,"dead_mm2":0.0,"dome_dominant":false,"dome_r90_um":80.97},{"well":"G12","row":"G","col":12,"coculture":"PDA+CAF+MAC","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":0.5049,"growth":2.11,"tcells":1453.7,"tcell_peak_z":6,"dead_mm2":0.0,"dome_dominant":false,"dome_r90_um":268.91},{"well":"H01","row":"H","col":1,"coculture":"PDA","compound":"control","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":0.9891,"growth":4.41,"tcells":1071.8,"tcell_peak_z":3,"dead_mm2":0.02059,"dome_dominant":false,"dome_r90_um":505.46},{"well":"H02","row":"H","col":2,"coculture":"PDA+CAF","compound":"Src low","concentration":50.0,"has_tcells":false,"excluded":false,"organoid_mm2":4.1493,"growth":2.83,"tcells":1175.7,"tcell_peak_z":4,"dead_mm2":0.0893,"dome_dominant":true,"dome_r90_um":1469.76},{"well":"H03","row":"H","col":3,"coculture":"PDA+MAC","compound":"control","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":2.7785,"growth":2.14,"tcells":0.0,"tcell_peak_z":null,"dead_mm2":0.0,"dome_dominant":false,"dome_r90_um":879.17},{"well":"H04","row":"H","col":4,"coculture":"PDA+CAF+MAC","compound":"control","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":3.5994,"growth":1.94,"tcells":503.1,"tcell_peak_z":3,"dead_mm2":0.00068,"dome_dominant":true,"dome_r90_um":1514.14},{"well":"H05","row":"H","col":5,"coculture":"PDA","compound":"low kras+Src","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":1.1216,"growth":3.04,"tcells":1282.5,"tcell_peak_z":3,"dead_mm2":0.05927,"dome_dominant":false,"dome_r90_um":530.61},{"well":"H06","row":"H","col":6,"coculture":"PDA+CAF","compound":"low kras+Src","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":6.2596,"growth":1.32,"tcells":502.1,"tcell_peak_z":13,"dead_mm2":0.26656,"dome_dominant":true,"dome_r90_um":1575.21},{"well":"H07","row":"H","col":7,"coculture":"PDA+MAC","compound":"low kras+Src","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":2.5739,"growth":2.88,"tcells":1163.2,"tcell_peak_z":2,"dead_mm2":0.01586,"dome_dominant":false,"dome_r90_um":907.99},{"well":"H08","row":"H","col":8,"coculture":"PDA+CAF+MAC","compound":"low kras+Src","concentration":10.0,"has_tcells":false,"excluded":false,"organoid_mm2":3.4425,"growth":1.22,"tcells":372.8,"tcell_peak_z":3,"dead_mm2":0.00391,"dome_dominant":false,"dome_r90_um":1110.08},{"well":"H10","row":"H","col":10,"coculture":"PDA+CAF","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":0.046,"growth":0.81,"tcells":1064.2,"tcell_peak_z":6,"dead_mm2":0.0,"dome_dominant":false,"dome_r90_um":154.47},{"well":"H11","row":"H","col":11,"coculture":"PDA+MAC","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":0.0696,"growth":0.79,"tcells":915.2,"tcell_peak_z":3,"dead_mm2":0.0,"dome_dominant":false,"dome_r90_um":109.87},{"well":"H12","row":"H","col":12,"coculture":"PDA+CAF+MAC","compound":"Dye","concentration":0.01,"has_tcells":false,"excluded":false,"organoid_mm2":0.0378,"growth":0.53,"tcells":529.7,"tcell_peak_z":4,"dead_mm2":0.0,"dome_dominant":false,"dome_r90_um":146.68}],"times":[{"t":0,"stamp":"2025y12m06d_12h11m","hours":0.0,"datetime":"2025-12-06T12:11"},{"t":1,"stamp":"2025y12m06d_20h27m","hours":8.3,"datetime":"2025-12-06T20:27"},{"t":2,"stamp":"2025y12m07d_04h27m","hours":16.3,"datetime":"2025-12-07T04:27"},{"t":3,"stamp":"2025y12m07d_12h11m","hours":24.0,"datetime":"2025-12-07T12:11"},{"t":4,"stamp":"2025y12m07d_20h27m","hours":32.3,"datetime":"2025-12-07T20:27"},{"t":5,"stamp":"2025y12m08d_04h29m","hours":40.3,"datetime":"2025-12-08T04:29"},{"t":6,"stamp":"2025y12m08d_12h11m","hours":48.0,"datetime":"2025-12-08T12:11"},{"t":7,"stamp":"2025y12m08d_20h27m","hours":56.3,"datetime":"2025-12-08T20:27"},{"t":8,"stamp":"2025y12m09d_04h29m","hours":64.3,"datetime":"2025-12-09T04:29"},{"t":9,"stamp":"2025y12m09d_12h11m","hours":72.0,"datetime":"2025-12-09T12:11"},{"t":10,"stamp":"2025y12m09d_20h27m","hours":80.3,"datetime":"2025-12-09T20:27"},{"t":11,"stamp":"2025y12m10d_04h29m","hours":88.3,"datetime":"2025-12-10T04:29"},{"t":12,"stamp":"2025y12m10d_12h11m","hours":96.0,"datetime":"2025-12-10T12:11"}],"calibration":{"um_per_px":2.798,"field_um2":11463874.3,"tcell":{"accepted":true,"um2_per_cell":90.8,"ci95":[82.8,98.9],"cv":0.197,"eq_diam_um":10.75,"n_wells":27,"n_seeded":5000,"by_coculture":{"PDA":{"n_wells":7,"um2_per_cell":93.9,"eq_diam_um":10.93},"PDA+CAF":{"n_wells":7,"um2_per_cell":101.8,"eq_diam_um":11.39},"PDA+CAF+MAC":{"n_wells":7,"um2_per_cell":84.1,"eq_diam_um":10.35},"PDA+MAC":{"n_wells":6,"um2_per_cell":88.8,"eq_diam_um":10.63}},"basis":"MIP alanı (z boyunca maksimum projeksiyon maskesi)"},"tumour":{"accepted":false,"um2_per_cell":62.7,"eq_diam_um":8.94,"n_seeded":2000,"reason":"eşdeğer çap 8.9 µm — bir T hücresinden (10.7 µm) küçük, dolayısıyla imkânsız; green kanalı organoidlerin çoğunu boyamıyor ve eksik sayıyor"},"object_counting":{"accepted":false,"delta_objects":1155,"expected":5000,"cells_per_object":4.33,"reason":"T'li ve T'siz kuyular arasındaki nesne farkı 1155, beklenen 5000; her bağlı bileşen ortalama 4.3 hücre içeriyor"}},"excluded":["A10","A11","B10","D03"]};
+window.THEME={"colors": {"green": "#1baf7a", "orange": "#eb6834", "nir": "#4a3aa7"}, "scene": {"green": "#199e70", "orange": "#d95926", "nir": "#9085e9"}, "terrScene": "#5a6270", "terr": "#b8b7b2", "seq": ["#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7", "#3987e5", "#2a78d6", "#256abf", "#1c5cab", "#184f95", "#104281", "#0d366b"], "label": {"green": "tumour", "orange": "T cells", "nir": "dead cells"}};
+window.DEFS={"organoid":{"title":"Organoid territory (brightfield)","formula":"area of the brightfield mask, in mm²","steps":["The brightfield image is flat-field corrected with a plate-wide illumination reference and smoothed (Gaussian, σ = 6 px).","Background is the histogram peak of the smoothed image — not the mean, because a dark spheroid drags the mean.","A pixel belongs to the organoid if it is more than 8 grey levels darker than that background.","The mask is opened, closed with a 31 px element and hole-filled, then components smaller than 200 px are dropped.","Area = pixel count × (2.798 µm)² ÷ 10⁶."],"caveat":"This is where cellular material is, not where tumour is. CAF and macrophage clusters, debris and dead material are also dark in brightfield, so it is an upper bound on tumour extent. It is used because the green stain misses most organoids, so brightfield answers “where” and green answers “how much of it is stained”."},"signal_area":{"title":"Signal area (per channel)","formula":"area of the pixels above threshold in the projection, in mm²","steps":["Each z plane has its own median subtracted; the background level drifts both between wells and along z.","The 17 planes are combined by maximum projection.","A pixel counts as signal if it exceeds a threshold fixed for the whole plate — a constant multiple of the plate-wide above-background gain, never adapted per well.","Connected components below the channel's minimum size are dropped (green: 4 px) to remove single-pixel noise.","Area = pixel count × (2.798 µm)² ÷ 10⁶."],"caveat":"The only assumption is the pixel size (2.798 µm/px, back-calculated from the instrument's field label and not independently verified). The threshold is deliberately not per-well: an adapted threshold rescales every well differently and makes wells incomparable."},"volume":{"title":"Signal volume","formula":"voxel count × (2.798 µm)²  →  µm²·layer","steps":["Every z plane is thresholded on its own, so a voxel is one pixel in one plane above threshold.","The count is multiplied by the pixel area to give µm²·layer."],"caveat":"This is not µm³. Converting to a volume needs the distance between layers, and the z step is recorded in no file — not in the TIFF tags, which carry no optical fields at all, and not in the plate XML, which contains no optical entry. Multiply by the z step in µm to obtain µm³. Note also that layer areas sum to several times the projected area, because the depth of field of a 4× objective is tens of microns and one object appears in several planes."},"tcells":{"title":"T-cell number — a derived estimate","formula":"signal area (µm²) ÷ 90.8 µm² per cell","steps":["The seeding numbers are known: wells marked for T cells received 5000, matched wells received none.","For each T-cell well, the projected orange signal area is taken and the median area of the matched T-cell-free wells of the same co-culture is subtracted — orange carries a background population that is present with or without T cells.","That difference divided by 5000 gives 90.8 µm² per cell (95 % CI 82.8–98.9, between-well CV 20 %, n = 27).","The scale implies an equivalent cell diameter of 10.75 µm. A T cell is 7–10 µm, and with fluorescence bloom at this pixel size that is the value one should get — this is the check that decides whether the scale may be used at all.","The four co-culture groups reproduce the scale independently, at 84–101 µm²."],"caveat":"Always written with ≈. It is an estimate, not a count: no cell is individually identified. Object counting was tested and rejected — the difference in connected-component count between wells with and without T cells is 1155 against 5000 seeded, so each component holds about 4.33 cells at this resolution."},"tumour_no_cells":{"title":"Why the tumour is not converted to cells","formula":"rejected","steps":["The same calculation was run for the 2000 seeded PDA cells.","It gives 62.7 µm² per cell, an equivalent diameter of 8.94 µm.","That is smaller than a T cell, which is impossible for a tumour cell — so the scale is wrong, and it is wrong in a knowable way: the green stain labels only part of the organoid population."],"caveat":"The calibration was computed and <b>rejected</b>; it is shown on the group page so the rejection can be checked rather than taken on trust. Tumour is reported as signal area and signal volume only."},"layer_cells":{"title":"Cells per layer — an apportionment, not a measurement","formula":"N_total × area(z) ÷ Σ area(z)","steps":["The calibration is defined on the projected mask.","Layer areas are a different quantity: they sum to several times the projected area, because one cell appears in several planes.","Dividing a layer area by the same scale would therefore inflate the count severalfold.","Instead the well total is distributed across layers in proportion to signal, so the layers sum exactly to the well total."],"caveat":"This is the shape of the depth distribution, not an independent count per layer. The overcount factor for the current frame is printed in the depth table."},"overcount":{"title":"Layer areas ÷ projected area","formula":"Σ(area in each plane) ÷ (area in the projection)","steps":["Both are measured, with the same threshold.","A value of 1 would mean each object appears in exactly one plane."],"caveat":"Values of 2–5 are expected and are not an error: the depth of field of a 4× objective (NA ≈ 0.13) is tens of microns, so a single object is in focus enough to cross the threshold in several planes. This is why per-layer areas are never summed and never converted to cell numbers directly."},"zorder":{"title":"Which end of the stack is which","formula":"not recorded — the z axis is ordinal, z00 is simply the first plane","steps":["Nothing in the files records the scan direction, so only the signal itself can be read.","Across all QC-passing wells at day 4, signal is essentially absent at z00–z01 (0.1–1.3 % of each channel).","T cells peak sharply at z03 (20 % of their signal) and dead cells at z04; tumour signal rises from z02, is widest at z05–z06 and thins out towards z16.","Two readings fit this. If z00 is the plate side, the T cells and debris have settled onto the plate under the tumour. If z00 is the apex of the dome, they rest on the dome's upper surface and the tumour thins downwards. The atlas does not choose: the <i>z00 on top</i> switch draws the second reading, and every number is a layer index that means the same thing either way."],"caveat":"z00 is not an absolute height — focus is set per well, so compare the <i>shape</i> of a depth distribution between wells, not the layer number. The spacing between layers is unknown, so the z axis is ordinal and carries no scale bar."},"growth":{"title":"Growth","formula":"organoid territory at day 4 ÷ territory at day 0","steps":["Both are brightfield territory areas, measured identically.","The ratio is dimensionless, so it does not depend on the pixel size."],"caveat":"Brightfield includes every dark object, so growth here means growth of cellular mass, not of tumour specifically."}};</script>
+<script>/* Figures — SVG, drawn from the embedded data, redrawn on the time slider.
+
+   Three rules hold in every figure here.
+
+   One axis per unit. Quantities in different units are never overlaid on a
+   shared scale; small multiples are used instead, each panel with its own axis
+   and its own unit. A second y-axis would place two scales on one frame and
+   make every crossing between the two curves an artefact of the scaling.
+
+   The primary quantity is the measured one. Signal area (mm²) and voxel counts
+   are what the images contain; a cell count is a derived estimate and is always
+   marked as such, on a second tick row of the same axis (a unit conversion of
+   the same data, not a second measure).
+
+   Colour is never the only carrier. Every series is directly labelled, every
+   figure has a table view, and the palette was checked for colour-vision
+   deficiency (atlas/palette_check.py). */
+
+const FIG = (() => {
+  const NS = "http://www.w3.org/2000/svg";
+  const INK = "#0b0b0b", INK2 = "#52514e", MUTED = "#8a8983", RULE = "#e6e5e1";
+
+  const el = (tag, at = {}, kids = []) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in at) if (at[k] != null) e.setAttribute(k, at[k]);
+    for (const c of [].concat(kids)) e.append(c);
+    return e;
+  };
+  const text = (x, y, s, at = {}) => {
+    const e = el("text", { x, y, fill: INK2, "font-size": 10.5, ...at });
+    e.textContent = s;
+    return e;
+  };
+
+  /* Readable axis steps: 1, 2, 2.5 or 5 × 10ⁿ. */
+  function ticks(lo, hi, want = 5) {
+    if (!(hi > lo)) return [lo];
+    const raw = (hi - lo) / want;
+    const p = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].find(m => m * p >= raw) * p;
+    const out = [];
+    for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step)
+      out.push(+v.toFixed(10));
+    return out;
+  }
+
+  const fmt = (v, d) => {
+    if (v == null || !isFinite(v)) return "—";
+    const o = d != null ? { minimumFractionDigits: d, maximumFractionDigits: d } : null;
+    if (o) return v.toLocaleString("en-GB", o);
+    const a = Math.abs(v);
+    const dg = a === 0 ? 0 : a < 0.01 ? 4 : a < 1 ? 3 : a < 10 ? 2 : a < 1000 ? 1 : 0;
+    return v.toLocaleString("en-GB", { minimumFractionDigits: dg, maximumFractionDigits: dg });
+  };
+  const zpad = z => "z" + String(z).padStart(2, "0");
+
+  // ------------------------------------------------------------ hover layer
+  let tipEl = null;
+  function tip(html, ev) {
+    if (!tipEl) { tipEl = document.createElement("div"); tipEl.id = "tip";
+                  document.body.append(tipEl); }
+    tipEl.innerHTML = html;
+    tipEl.style.display = "block";
+    const r = tipEl.getBoundingClientRect();
+    let x = ev.clientX + 14, y = ev.clientY - 10;
+    if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14;
+    if (y + r.height > innerHeight - 8) y = innerHeight - r.height - 8;
+    tipEl.style.left = x + "px"; tipEl.style.top = Math.max(8, y) + "px";
+  }
+  const untip = () => { if (tipEl) tipEl.style.display = "none"; };
+  function hoverable(node, html) {
+    node.addEventListener("pointerenter", e => tip(html, e));
+    node.addEventListener("pointermove", e => tip(html, e));
+    node.addEventListener("pointerleave", untip);
+    return node;
+  }
+
+  // =========================================================== depth profile
+  /* Figure: how much of each population sits in each z layer.
+
+     Bars run left to right, layers bottom to top so the figure reads in the
+     same orientation as the 3D scene. The three panels carry different units
+     and are therefore not comparable to one another; each is read on its own.
+     The T-cell panel carries a second tick row in cell equivalents — the same
+     numbers divided by the calibrated area per cell, not a second measurement. */
+  function depth(host, d, T, cal, onLayer, zup) {
+    const W = 600, H = 276, top = 46, bot = 62, left = 36, gap = 30;
+    const pw = (W - left - gap * 2 - 10) / 3, ph = H - top - bot;
+    const svg = el("svg", { class: "plot", viewBox: `0 0 ${W} ${H}`, role: "img" });
+    const nz = d.by_z.green.length;
+    const bh = ph / nz;
+    // Row order follows the 3D scene: z00 at the bottom, or on top when the
+    // scene is flipped — the figure and the scene must never disagree.
+    const row = z => zup ? z : nz - 1 - z;
+
+    for (let i = 0; i < nz; i++) {
+      if (i % 4 && i !== nz - 1) continue;
+      svg.append(text(left - 7, top + (row(i) + 0.7) * bh + 3, zpad(i),
+        { "text-anchor": "end", fill: MUTED, "font-size": 9.5 }));
+    }
+
+    // Layer areas are NOT converted with the plate-wide µm²/cell factor: they
+    // sum to several times the projected area because out-of-focus spread puts
+    // one cell in several layers. The second row apportions the well total
+    // across layers instead (factor computed per frame in build.py).
+    const panels = [
+      { ch: "green", lbl: "Tumour signal", unit: "mm² per layer",
+        vals: d.derived.tumour_area_by_z_mm2, dec: 4 },
+      { ch: "orange", lbl: "T-cell signal", unit: "mm² per layer",
+        vals: d.derived.tcell_area_by_z_mm2, dec: 4,
+        second: { unit: "≈ cells (apportioned)",
+                  conv: v => v * d.derived.layer_cell_per_mm2, dec: 0 } },
+      { ch: "nir", lbl: "Dead-cell signal", unit: "mm² per layer",
+        vals: d.derived.dead_area_by_z_mm2, dec: 5 },
+    ];
+
+    panels.forEach((p, k) => {
+      const x = left + k * (pw + gap);
+      const hi = Math.max(...p.vals, 1e-12);
+      const tk = ticks(0, hi, 3);
+      const xmax = Math.max(tk[tk.length - 1], hi);
+
+      svg.append(text(x, top - 30, p.lbl, { fill: INK, "font-size": 11.5,
+        "font-weight": 600 }));
+      svg.append(text(x, top - 19, p.unit, { fill: MUTED, "font-size": 10 }));
+      if (p.second)
+        svg.append(text(x, top - 8, p.second.unit + " (derived)",
+          { fill: MUTED, "font-size": 10, "font-style": "italic" }));
+
+      for (const t of tk) {
+        const px = x + t / xmax * pw;
+        svg.append(el("line", { x1: px, y1: top, x2: px, y2: top + ph, stroke: RULE }));
+        svg.append(text(px, top + ph + 12, fmt(t), { "text-anchor": "middle",
+          fill: MUTED, "font-size": 9 }));
+        if (p.second)
+          svg.append(text(px, top + ph + 23, fmt(p.second.conv(t), p.second.dec),
+            { "text-anchor": "middle", fill: MUTED, "font-size": 9,
+              "font-style": "italic" }));
+      }
+
+      for (let z = 0; z < nz; z++) {
+        const y = top + row(z) * bh;
+        const bw = p.vals[z] / xmax * pw;
+        const r = el("rect", { x, y: y + 0.9, height: Math.max(bh - 1.8, 1),
+          width: Math.max(bw, p.vals[z] > 0 ? 0.8 : 0), fill: T.colors[p.ch], rx: 1 });
+        const extra = p.second
+          ? `<br><span class="k">derived</span> ≈ ${fmt(p.second.conv(p.vals[z]), 0)} cells`
+          : "";
+        hoverable(r, `<b>layer ${zpad(z)}</b><br><span class="k">${p.lbl}</span> ` +
+          `${fmt(p.vals[z], p.dec)} mm²${extra}`);
+        if (onLayer) { r.style.cursor = "pointer";
+                       r.addEventListener("click", () => onLayer(z)); }
+        svg.append(r);
+      }
+      svg.append(el("line", { x1: x, y1: top, x2: x, y2: top + ph, stroke: "#c9c8c3" }));
+    });
+
+    svg.append(text(left, H - 6, (zup ? "z00 on top" : "z00 at the bottom") +
+      " · layer spacing is not to scale (the z step is not recorded)",
+      { fill: MUTED, "font-size": 9.5 }));
+    host.replaceChildren(svg);
+    return svg;
+  }
+
+  // ============================================================ time course
+  /* Figure: how each quantity changed over the four days.
+     Four quantities, four units, four panels. */
+  function timecourse(host, frames, times, T, tcur, cal, onTime) {
+    const W = 1200, H = 250, top = 48, bot = 48, left = 16, gap = 36;
+    const pw = (W - left - gap * 3 - 24) / 4, ph = H - top - bot;
+    const svg = el("svg", { class: "plot", viewBox: `0 0 ${W} ${H}`, role: "img" });
+    const days = times.map(t => t.hours / 24);
+    const dmax = Math.max(...days);
+    const um2 = cal.tcell.um2_per_cell;
+
+    const series = [
+      { lbl: "Organoid mass", unit: "mm² (brightfield)", col: "#7d7c77",
+        get: f => f.derived.organoid_mm2, dec: 2 },
+      { lbl: "Tumour signal", unit: "mm²", col: T.colors.green,
+        get: f => f.derived.tumour_mm2, dec: 3 },
+      { lbl: "T-cell signal", unit: "mm²", col: T.colors.orange,
+        get: f => f.derived.tcell_mm2, dec: 3,
+        second: { unit: "≈ cells", conv: v => v * 1e6 / um2 } },
+      { lbl: "Dead-cell signal", unit: "mm²", col: T.colors.nir,
+        get: f => f.derived.dead_mm2, dec: 4 },
+    ];
+
+    series.forEach((s, k) => {
+      const x0 = left + k * (pw + gap);
+      const vals = frames.map(s.get);
+      const hi = Math.max(...vals, 1e-9);
+      const tk = ticks(0, hi, 3);
+      const ymax = Math.max(tk[tk.length - 1], hi);
+      const X = dd => x0 + dd / dmax * pw;
+      const Y = v => top + ph - v / ymax * ph;
+
+      svg.append(text(x0, top - 30, s.lbl, { fill: INK, "font-size": 11.5,
+        "font-weight": 600 }));
+      svg.append(text(x0, top - 19, s.unit, { fill: MUTED, "font-size": 10 }));
+      if (s.second)
+        svg.append(text(x0, top - 8, `top = ≈ ${fmt(s.second.conv(ymax), 0)} cells`,
+          { fill: MUTED, "font-size": 10, "font-style": "italic" }));
+
+      for (const t of tk) {
+        svg.append(el("line", { x1: x0, y1: Y(t), x2: x0 + pw, y2: Y(t), stroke: RULE }));
+        svg.append(text(x0 + pw, Y(t) - 2.5, fmt(t), { "text-anchor": "end", fill: MUTED,
+          "font-size": 9 }));
+      }
+      svg.append(el("polyline", { points: vals.map((v, i) => X(days[i]) + "," + Y(v)).join(" "),
+        fill: "none", stroke: s.col, "stroke-width": 2, "stroke-linejoin": "round" }));
+      vals.forEach((v, i) => {
+        const extra = s.second ? `<br><span class="k">derived</span> ≈ ` +
+          `${fmt(s.second.conv(v), 0)} cells` : "";
+        const mk = hoverable(el("circle", { cx: X(days[i]), cy: Y(v),
+          r: i === tcur ? 4.6 : 2.6, fill: i === tcur ? s.col : "#fcfcfb", stroke: s.col,
+          "stroke-width": i === tcur ? 1.8 : 1.4 }),
+          `<b>${s.lbl}</b><br><span class="k">day</span> ${fmt(days[i], 2)}` +
+          `<br><span class="k">value</span> ${fmt(v, s.dec)} ${s.unit.split(" ")[0]}` +
+          extra + (onTime ? "<br><span class=\"k\">click to see the images</span>" : ""));
+        if (onTime) { mk.style.cursor = "pointer";
+                      mk.addEventListener("click", () => onTime(i)); }
+        svg.append(mk);
+      });
+      svg.append(el("line", { x1: x0, y1: top + ph, x2: x0 + pw, y2: top + ph,
+        stroke: "#c9c8c3" }));
+      svg.append(text(x0, top + ph + 14, "0", { fill: MUTED, "font-size": 9.5 }));
+      svg.append(text(x0 + pw, top + ph + 14, Math.round(dmax) + " d",
+        { "text-anchor": "end", fill: MUTED, "font-size": 9.5 }));
+    });
+    svg.append(text(W / 2, H - 6, "days after seeding", { "text-anchor": "middle",
+      fill: MUTED, "font-size": 10 }));
+    host.replaceChildren(svg);
+    return svg;
+  }
+
+  // ---------------------------------------------------------------- export
+  function download(svg, name) {
+    const c = svg.cloneNode(true);
+    c.setAttribute("xmlns", NS);
+    c.setAttribute("style", "background:#fcfcfb");
+    const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n',
+      new XMLSerializer().serializeToString(c)], { type: "image/svg+xml" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = name;
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+
+  function downloadCSV(head, rows, name) {
+    const q = v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : v;
+    const csv = [head, ...rows].map(r => r.map(q).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+
+  /* A "?" button that opens the definition of a quantity: its formula, how it is
+     computed, and what it does not measure. A table that shows a number without
+     showing where it came from is asking to be trusted; in a scientific context
+     that is not enough. Definitions live in atlas/defs.py, one source for all
+     pages. */
+  function explain(key) {
+    const d = (window.DEFS || {})[key];
+    if (!d) return;
+    const dlg = document.getElementById("explain");
+    dlg.querySelector(".exbody").innerHTML =
+      `<h3>${d.title}</h3>` +
+      `<p class="exform"><code>${d.formula}</code></p>` +
+      "<ol>" + d.steps.map(x => `<li>${x}</li>`).join("") + "</ol>" +
+      (d.caveat ? `<p class="excav">${d.caveat}</p>` : "");
+    dlg.showModal();
+  }
+
+  function qmark(key) {
+    if (!(window.DEFS || {})[key]) return "";
+    const b = document.createElement("button");
+    b.className = "qmark";
+    b.type = "button";
+    b.textContent = "?";
+    b.title = "how this is computed";
+    b.addEventListener("click", () => explain(key));
+    return b;
+  }
+
+  /* Journal-style table: a caption above, a units row under the header, a
+     footnote below. Numeric columns are right-aligned and tabular. A row whose
+     first cell carries {def:"key"} gets a "?" next to it. */
+  function table(spec) {
+    const wrap = document.createElement("div");
+    const t = document.createElement("table");
+    t.className = "data";
+    if (spec.caption) {
+      const cap = document.createElement("caption");
+      cap.innerHTML = spec.caption;
+      t.append(cap);
+    }
+    const thead = document.createElement("thead");
+    thead.append(rowOf(spec.head, "th"));
+    if (spec.units) {
+      const u = rowOf(spec.units, "th");
+      u.className = "units";
+      thead.append(u);
+    }
+    const tb = document.createElement("tbody");
+    for (const r of spec.rows) tb.append(rowOf(r, "td"));
+    t.append(thead, tb);
+    wrap.append(t);
+    if (spec.note) {
+      const n = document.createElement("p");
+      n.className = "tnote";
+      n.innerHTML = spec.note;
+      wrap.append(n);
+    }
+    if (spec.csv !== false) {
+      const b = document.createElement("button");
+      b.className = "csv";
+      b.textContent = "download CSV";
+      b.addEventListener("click", () => downloadCSV(spec.head, spec.rows,
+        (spec.file || "table") + ".csv"));
+      wrap.append(b);
+    }
+    return wrap;
+  }
+  function rowOf(cells, tag) {
+    const tr = document.createElement("tr");
+    for (const c of cells) {
+      const e = document.createElement(tag);
+      if (c && typeof c === "object") {
+        e.innerHTML = c.html != null ? c.html : "";
+        if (c.cls) e.className = c.cls;
+        if (c.def) { const b = qmark(c.def); if (b) e.append(" ", b); }
+      } else e.textContent = c;
+      tr.append(e);
+    }
+    return tr;
+  }
+
+  return { depth, timecourse, download, downloadCSV, table, fmt, ticks,
+           untip, hoverable, el, text, zpad, explain, qmark,
+           INK, INK2, MUTED, RULE };
+})();
+</script>
+<script>/* Plaka sayfası: 96 kuyuluk ızgara, seçilen ölçüye göre renklendirilir.
+
+   Renk burada büyüklük taşıyor, kimlik değil — o yüzden tek hue'lu sıralı ölçek.
+   (Anlamlı bir orta noktası olan bir ölçü için ıraksak ölçek altyapısı duruyor:
+   METRICS girdisine `div: <orta>` verilir.) Renk hiçbir zaman tek taşıyıcı
+   değil: üstüne gelince kuyunun değeri ve koşulu yazılıyor.
+
+   Ölçek sınırları yüzdeliklerden (p5–p95) alınır, uçlardan değil: tek bir aykırı
+   kuyu bütün plakayı tek renge indirirdi. */
+
+(() => {
+  const S = window.SUMM, T = window.THEME;
+  const fmt = FIG.fmt;
+  const byWell = new Map(S.wells.map(w => [w.well, w]));
+  const ROWS = "ABCDEFGH", COLS = 12;
+
+  const DIV_LO = ["#0d366b", "#184f95", "#256abf", "#3987e5", "#86b6ef", "#cde2fb"];
+  const DIV_HI = ["#f6c9c8", "#f0a6a5", "#e87b7a", "#e34948", "#c22e2d", "#9c1f1e"];
+  const DIV_MID = "#f0efec";
+
+  // Each measure carries the sentence a reader needs to interpret the colour;
+  // it is shown under the selector, so nobody has to ask.
+  const METRICS = {
+    tcells: { lbl: "T cells", unit: "≈ cells", d: 0,
+      desc: "How much T-cell (orange) signal the well holds at day 4, converted " +
+        `to ≈ cells (signal area ÷ ${S.calibration.tcell.um2_per_cell} µm² per cell). Every T-cell well ` +
+        "received 5000 T cells; darker = more T-cell signal remains detectable. " +
+        "Wells without T cells show their orange background, which is small." },
+    tcell_peak_z: { lbl: "T-cell peak layer", unit: "(z index)", d: 0,
+      only: w => w.has_tcells,
+      desc: "The z layer (z00–z16) that holds the most T-cell signal at day 4 — " +
+        "where along the stack the T cells sit. Layers are ordinal: a higher " +
+        "number is further from z00, but the distance between layers is not " +
+        "recorded. Only wells that received T cells are coloured." },
+    organoid_mm2: { lbl: "organoid territory", unit: "mm²", d: 2,
+      desc: "The area of the well covered by dark (cellular) material in " +
+        "brightfield at day 4, in mm² — the organoid mass's footprint, " +
+        "independent of any stain. Darker = larger footprint." },
+    growth: { lbl: "growth", unit: "× (day 4 / day 0)", d: 2,
+      desc: "Footprint area at day 4 divided by the same well's footprint at " +
+        "day 0. 1.0 = no change, 2.0 = doubled. Brightfield includes every dark " +
+        "object, so this is growth of cellular mass, not of tumour specifically." },
+    dead_mm2: { lbl: "dead-cell signal", unit: "mm²", d: 4,
+      desc: "Dead-cell (NIR) signal area at day 4, in mm². The dye-only wells " +
+        "(columns 10–12) did not receive the dead-cell dye and read zero." },
+  };
+
+  function quantiles(vals) {
+    const v = vals.filter(x => x != null && isFinite(x)).sort((a, b) => a - b);
+    if (!v.length) return [0, 1];
+    const at = p => v[Math.min(v.length - 1, Math.max(0, Math.round(p * (v.length - 1))))];
+    return [at(0.05), at(0.95)];
+  }
+
+  function build(key) {
+    const M = METRICS[key];
+    const active = S.wells.filter(w => !w.excluded && (!M.only || M.only(w)));
+    const [lo, hi] = quantiles(active.map(w => w[key]));
+
+    const color = v => {
+      if (v == null || !isFinite(v)) return null;
+      if (M.div != null) {
+        // ıraksak: nötr orta noktadan iki yöne, her kol kendi aralığında
+        const mid = M.div;
+        if (Math.abs(v - mid) < 1e-9) return DIV_MID;
+        if (v < mid) {
+          const q = Math.min(1, (mid - v) / Math.max(mid - lo, 1e-9));
+          return DIV_LO[DIV_LO.length - 1 - Math.min(DIV_LO.length - 1,
+                        Math.floor(q * DIV_LO.length))];
+        }
+        const q = Math.min(1, (v - mid) / Math.max(hi - mid, 1e-9));
+        return DIV_HI[Math.min(DIV_HI.length - 1, Math.floor(q * DIV_HI.length))];
+      }
+      const q = Math.min(1, Math.max(0, (v - lo) / Math.max(hi - lo, 1e-9)));
+      return T.seq[Math.min(T.seq.length - 1, Math.floor(q * T.seq.length))];
+    };
+
+    const md = document.getElementById("metricdesc");
+    if (md) md.textContent = M.desc || "";
+    const plate = document.getElementById("plate");
+    plate.replaceChildren();
+    plate.append(el("div", "hd", ""));
+    for (let c = 1; c <= COLS; c++) plate.append(el("div", "hd", String(c)));
+
+    for (const r of ROWS) {
+      plate.append(el("div", "rw", r));
+      for (let c = 1; c <= COLS; c++) {
+        const id = r + String(c).padStart(2, "0");
+        const w = byWell.get(id);
+        if (!w) { plate.append(el("div", "wellbox na", "")); continue; }
+        const a = document.createElement("a");
+        a.className = "wellbox" + (w.excluded ? " ex" : "");
+        a.href = id + ".html";
+        const col = color(w[key]);
+        a.style.background = col || "#f2f1ee";
+        if (!col) a.style.boxShadow = "inset 0 0 0 1px #e6e5e1";
+        if (w.has_tcells) a.append(el("span", "tc", ""));
+        const val = w[key] == null ? "not measured" : `${fmt(w[key], M.d)} ${M.unit}`;
+        const note = M.only && !M.only(w) ? "<br><span class=\"k\">no T cells added — "
+          + "this measure is not interpretable here</span>" : "";
+        const info = `<b>${id}</b> · ${w.coculture}<br>` +
+          `<span class="k">${w.compound}</span>` +
+          (w.concentration != null ? ` ${fmt(w.concentration, null)} nM` : "") +
+          (w.has_tcells ? "<br>+ T cells" : "") +
+          (w.excluded ? "<br><span class=\"k\">excluded by QC</span>" : "") +
+          `<br><br><span class="k">${M.lbl}</span> <b>${val}</b>` + note;
+        bindTip(a, info);
+        plate.append(a);
+      }
+    }
+
+    document.getElementById("slo").textContent = fmt(lo, M.d);
+    document.getElementById("shi").textContent = fmt(hi, M.d);
+    const bar = document.getElementById("sbar");
+    bar.style.background = M.div != null
+      ? `linear-gradient(90deg, ${DIV_LO[0]}, ${DIV_MID} 50%, ${DIV_HI[DIV_HI.length - 1]})`
+      : `linear-gradient(90deg, ${T.seq[0]}, ${T.seq[T.seq.length - 1]})`;
+    document.getElementById("sbar").title = M.div != null
+      ? "diverging scale, midpoint 1.0 = uniform scatter" : "sequential scale";
+  }
+
+  function el(tag, cls, txt) {
+    const e = document.createElement(tag);
+    e.className = cls; if (txt) e.textContent = txt;
+    return e;
+  }
+
+  let tipEl;
+  function bindTip(node, html) {
+    node.addEventListener("pointerenter", e => show(html, e));
+    node.addEventListener("pointermove", e => show(html, e));
+    node.addEventListener("pointerleave", () => { if (tipEl) tipEl.style.display = "none"; });
+  }
+  function show(html, ev) {
+    if (!tipEl) { tipEl = document.createElement("div"); tipEl.id = "tip";
+                  document.body.append(tipEl); }
+    tipEl.innerHTML = html; tipEl.style.display = "block";
+    const r = tipEl.getBoundingClientRect();
+    let x = ev.clientX + 14, y = ev.clientY - 10;
+    if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14;
+    if (y + r.height > innerHeight - 8) y = innerHeight - r.height - 8;
+    tipEl.style.left = x + "px"; tipEl.style.top = Math.max(8, y) + "px";
+  }
+
+  document.getElementById("metric").addEventListener("change", e => build(e.target.value));
+  build("tcells");
+
+  window.SHOOT = {
+    metric(k) { document.getElementById("metric").value = k; build(k); },
+    scroll(y) { window.scrollTo(0, y); },
+  };
+})();
+/* Screenshot hook — atlas/shoot.py drives the page through the URL fragment so
+   the animations in the README come from the real page. Inert without #shoot=. */
+(() => {
+  const m = /#shoot=(.*)$/.exec(location.hash);
+  if (!m) return;
+  const run = () => { try { new Function(decodeURIComponent(m[1]))(); }
+                      catch (e) { console.error("shoot", e); } };
+  setTimeout(run, 350);
+})();
+
+</script>
+</body>
+</html>
