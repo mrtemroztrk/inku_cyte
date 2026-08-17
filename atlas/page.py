@@ -379,6 +379,7 @@ def groups_page(d: dict) -> str:
     tc = cal["tcell"]
     dm = d["dead_matched"]
 
+    conf = d.get("confluence", {})
     stat_note = ("Every well is a point; the heavy line is the median and the grey "
                  "band is its bootstrap 95 % confidence interval (2000 resamples). "
                  "No box plots: with 4–17 wells per condition a box plot invents "
@@ -411,7 +412,20 @@ def groups_page(d: dict) -> str:
              "Median signed distance of the T-cell signal to the organoid boundary: "
              "negative is inside the territory, positive outside, zero at the rim. "
              "This is independent of Figure 1 — a population can be enriched inside "
-             "and still sit only at the rim. " + stat_note, wide=True),
+             "and still sit only at the rim. "
+             "<b>Confluent wells are excluded from this figure.</b> When the "
+             "territory fills the field, every point is inside it by construction "
+             "and the median distance measures confluence rather than infiltration. "
+             f"Measured across all {conf.get('n', 0)} T-cell wells, territory "
+             f"fraction and median distance correlate at Spearman ρ = "
+             f"{conf.get('rho', float('nan'))} (p = {conf.get('p', float('nan'))}), "
+             f"so wells whose territory covers more than "
+             f"{100 * conf.get('cut', 0.7):.0f} % of the field are dropped here: "
+             f"{conf.get('n_dropped', 0)} well(s)"
+             + (" (" + ", ".join(conf.get("dropped", [])) + ")"
+                if conf.get("dropped") else "")
+             + ". Figure 1 is unaffected — enrichment is a density ratio and does "
+               "not have this dependence. " + stat_note, wide=True),
         _fig("growth", "Figure 4", "Organoid growth",
              "How does the organoid mass develop, and does the co-culture change it?",
              "Brightfield territory area, independent of staining. Thin lines are "

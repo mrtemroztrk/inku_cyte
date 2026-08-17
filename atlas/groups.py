@@ -72,8 +72,34 @@ def load_wells() -> list[dict]:
                        if F[0]["derived"]["organoid_mm2"] > 0 else None),
             # T hücrelerinin kenara göre medyan konumu: negatif = içeride
             "t_median_dist": last["bands"]["orange"]["median_signed_dist_um"],
+            "terr_frac": last["bf"]["terr_frac"],
         })
     return out
+
+
+# İşaretli uzaklık, teritoryanın kadrajda kapladığı alana duyarlı: teritorya
+# görüşün tamamına yakınını kaplayınca her nokta zorunlu olarak "içeride" çıkar
+# ve medyan uzaklık infiltrasyonu değil konfluensi ölçer. Ölçüldü: +T kuyularında
+# teritorya oranı ile medyan uzaklık arasında Spearman ρ = −0,50 (p = 0,008,
+# n = 27), ve PDA+MAC grubunun 6 kuyusundan 4'ünde teritorya alanın %95'ini
+# kaplıyor. Bu yüzden uzaklık figürü yoğun kuyuları dışarıda bırakır.
+CONFLUENT_MAX = 0.70
+
+
+def confluence_confound(wells: list[dict]) -> dict:
+    """Uzaklık ölçüsünün teritorya büyüklüğüne bağımlılığı — figürde raporlanır."""
+    from scipy import stats
+
+    sel = [w for w in wells if w["has_tcells"] and not w["excluded"]
+           and w["t_median_dist"] is not None and w["terr_frac"] is not None]
+    if len(sel) < 5:
+        return {"n": len(sel)}
+    rho, p = stats.spearmanr([w["terr_frac"] for w in sel],
+                             [w["t_median_dist"] for w in sel])
+    dropped = [w["well"] for w in sel if w["terr_frac"] > CONFLUENT_MAX]
+    return {"n": len(sel), "rho": round(float(rho), 3), "p": round(float(p), 5),
+            "cut": CONFLUENT_MAX, "dropped": sorted(dropped),
+            "n_dropped": len(dropped)}
 
 
 def strip_series(wells: list[dict], key: str, groupby: str, order: list[str],
@@ -176,15 +202,22 @@ def build() -> dict:
     wells = load_wells()
     t_only = lambda w: w["has_tcells"]                              # noqa: E731
 
+    # Uzaklık ölçüsü yoğun kuyularda anlamını yitiriyor (yukarıdaki gerekçe),
+    # o yüzden bu figürde ek bir koşul var. Zenginleşme yoğunluk oranı olduğu
+    # için aynı sorundan etkilenmiyor ve tüm kuyularda kalıyor.
+    dist_ok = lambda w: w["has_tcells"] and w["terr_frac"] is not None \
+        and w["terr_frac"] <= CONFLUENT_MAX                            # noqa: E731
+
     enrich_coc = strip_series(wells, "t_enrich", "coculture", COCULTURE_ORDER, t_only)
     enrich_cmp = strip_series(wells, "t_enrich", "compound", COMPOUND_ORDER, t_only)
-    dist_coc = strip_series(wells, "t_median_dist", "coculture", COCULTURE_ORDER, t_only)
+    dist_coc = strip_series(wells, "t_median_dist", "coculture", COCULTURE_ORDER, dist_ok)
     growth = timecourse(wells, "organoid", "coculture", COCULTURE_ORDER)
 
     return {
         "calibration": calib.load(),
         "n_wells": len([w for w in wells if not w["excluded"]]),
         "n_excluded": len([w for w in wells if w["excluded"]]),
+        "confluence": confluence_confound(wells),
         "enrich_coculture": {**enrich_coc, "tests": pairwise(enrich_coc)},
         "enrich_compound": {**enrich_cmp, "tests": pairwise(enrich_cmp)},
         "dist_coculture": {**dist_coc, "tests": pairwise(dist_coc)},
