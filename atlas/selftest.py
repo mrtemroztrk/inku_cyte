@@ -110,7 +110,7 @@ def check(path: Path) -> list[str]:
 def check_payload(d: dict) -> list[str]:
     """Sayfanın çizeceği alanlar gerçekten dolu mu."""
     e: list[str] = []
-    need = ("well", "meta", "times", "frames", "calibration", "voxel_um", "band_labels")
+    need = ("well", "meta", "times", "frames", "calibration", "voxel_um")
     for k in need:
         if k not in d:
             e.append(f"DATA.{k} yok")
@@ -118,11 +118,10 @@ def check_payload(d: dict) -> list[str]:
         return e
     if len(d["frames"]) != len(d["times"]):
         e.append(f"kare sayısı {len(d['frames'])} ≠ zaman noktası {len(d['times'])}")
-    nb = len(d["band_labels"])
     for f in d["frames"]:
         tag = f"t{f['t']:02d}"
-        for k in ("vox", "derived", "by_z", "zband", "bands", "totals", "grid",
-                  "terr_map", "terr_shape", "band_area_mm2"):
+        for k in ("vox", "vox_focus", "derived", "by_z", "totals", "grid",
+                  "terr_map", "terr_shape"):
             if k not in f:
                 e.append(f"{tag}: {k} yok")
         if "derived" not in f:
@@ -132,25 +131,18 @@ def check_payload(d: dict) -> list[str]:
         for k in ("tcells_by_z", "tumour_area_by_z_mm2", "dead_area_by_z_mm2"):
             if len(dv[k]) != nz:
                 e.append(f"{tag}: {k} uzunluğu {len(dv[k])} ≠ {nz} katman")
-        if len(dv["tcells_by_band"]) != nb:
-            e.append(f"{tag}: tcells_by_band {len(dv['tcells_by_band'])} ≠ {nb} bant")
-        if len(f["band_area_mm2"]) != nb:
-            e.append(f"{tag}: band_area_mm2 {len(f['band_area_mm2'])} ≠ {nb} bant")
         for ch in ("green", "orange", "nir"):
-            if len(f["bands"][ch]["enrich"]) != nb:
-                e.append(f"{tag}/{ch}: bant sayısı tutmuyor")
-            if len(f["zband"][ch]) != nz:
-                e.append(f"{tag}/{ch}: zband satır sayısı {len(f['zband'][ch])} ≠ {nz}")
-            elif any(len(r) != nb for r in f["zband"][ch]):
-                e.append(f"{tag}/{ch}: zband sütun sayısı tutmuyor")
+            if len(f["by_z"][ch]) != nz:
+                e.append(f"{tag}/{ch}: by_z uzunluğu {len(f['by_z'][ch])} ≠ {nz}")
             if not f["vox"].get(ch):
                 e.append(f"{tag}/{ch}: voksel paketi boş")
-        # ölçüm ile türetme tutarlılığı: paylar toplamı toplam sayıya eşit olmalı
+            if not f["vox_focus"].get(ch):
+                e.append(f"{tag}/{ch}: odak bulutu boş")
+        # ölçüm ile türetme tutarlılığı: katman payları toplamı toplam sayıya eşit
         tot = dv["tcells"]
-        s_z, s_b = sum(dv["tcells_by_z"]), sum(dv["tcells_by_band"])
-        for name, s in (("katman", s_z), ("bant", s_b)):
-            if tot > 0 and abs(s - tot) / tot > 0.02:
-                e.append(f"{tag}: T hücresi {name} dağılımı toplamı {s:.0f} ≠ {tot:.0f}")
+        s_z = sum(dv["tcells_by_z"])
+        if tot > 0 and abs(s_z - tot) / tot > 0.02:
+            e.append(f"{tag}: T hücresi katman dağılımı toplamı {s_z:.0f} ≠ {tot:.0f}")
     return e
 
 

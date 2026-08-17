@@ -1,10 +1,9 @@
 /* Plaka sayfası: 96 kuyuluk ızgara, seçilen ölçüye göre renklendirilir.
 
    Renk burada büyüklük taşıyor, kimlik değil — o yüzden tek hue'lu sıralı ölçek.
-   Tek istisna zenginleşme: 1,0 (rastgele dağılım) anlamlı bir orta nokta olduğu
-   için ıraksak ölçek gerekiyor — mavi dışlanma, kırmızı zenginleşme, nötr gri
-   rastgele. Renk hiçbir zaman tek taşıyıcı değil: üstüne gelince kuyunun değeri
-   ve koşulu yazılıyor.
+   (Anlamlı bir orta noktası olan bir ölçü için ıraksak ölçek altyapısı duruyor:
+   METRICS girdisine `div: <orta>` verilir.) Renk hiçbir zaman tek taşıyıcı
+   değil: üstüne gelince kuyunun değeri ve koşulu yazılıyor.
 
    Ölçek sınırları yüzdeliklerden (p5–p95) alınır, uçlardan değil: tek bir aykırı
    kuyu bütün plakayı tek renge indirirdi. */
@@ -19,13 +18,31 @@
   const DIV_HI = ["#f6c9c8", "#f0a6a5", "#e87b7a", "#e34948", "#c22e2d", "#9c1f1e"];
   const DIV_MID = "#f0efec";
 
+  // Each measure carries the sentence a reader needs to interpret the colour;
+  // it is shown under the selector, so nobody has to ask.
   const METRICS = {
-    t_enrich: { lbl: "T-cell enrichment", unit: "× uniform", div: 1, d: 2,
-                only: w => w.has_tcells },
-    tcells: { lbl: "T cells", unit: "≈ cells", d: 0 },
-    organoid_mm2: { lbl: "organoid territory", unit: "mm²", d: 2 },
-    growth: { lbl: "growth", unit: "× (day 4 / day 0)", d: 2 },
-    dead_mm2: { lbl: "dead-cell signal", unit: "mm²", d: 4 },
+    tcells: { lbl: "T cells", unit: "≈ cells", d: 0,
+      desc: "How much T-cell (orange) signal the well holds at day 4, converted " +
+        `to ≈ cells (signal area ÷ ${S.calibration.tcell.um2_per_cell} µm² per cell). Every T-cell well ` +
+        "received 5000 T cells; darker = more T-cell signal remains detectable. " +
+        "Wells without T cells show their orange background, which is small." },
+    tcell_peak_z: { lbl: "T-cell peak layer", unit: "(z index)", d: 0,
+      only: w => w.has_tcells,
+      desc: "The z layer (z00–z16) that holds the most T-cell signal at day 4 — " +
+        "where along the stack the T cells sit. Layers are ordinal: a higher " +
+        "number is further from z00, but the distance between layers is not " +
+        "recorded. Only wells that received T cells are coloured." },
+    organoid_mm2: { lbl: "organoid territory", unit: "mm²", d: 2,
+      desc: "The area of the well covered by dark (cellular) material in " +
+        "brightfield at day 4, in mm² — the organoid mass's footprint, " +
+        "independent of any stain. Darker = larger footprint." },
+    growth: { lbl: "growth", unit: "× (day 4 / day 0)", d: 2,
+      desc: "Footprint area at day 4 divided by the same well's footprint at " +
+        "day 0. 1.0 = no change, 2.0 = doubled. Brightfield includes every dark " +
+        "object, so this is growth of cellular mass, not of tumour specifically." },
+    dead_mm2: { lbl: "dead-cell signal", unit: "mm²", d: 4,
+      desc: "Dead-cell (NIR) signal area at day 4, in mm². The dye-only wells " +
+        "(columns 10–12) did not receive the dead-cell dye and read zero." },
   };
 
   function quantiles(vals) {
@@ -58,6 +75,8 @@
       return T.seq[Math.min(T.seq.length - 1, Math.floor(q * T.seq.length))];
     };
 
+    const md = document.getElementById("metricdesc");
+    if (md) md.textContent = M.desc || "";
     const plate = document.getElementById("plate");
     plate.replaceChildren();
     plate.append(el("div", "hd", ""));
@@ -124,5 +143,20 @@
   }
 
   document.getElementById("metric").addEventListener("change", e => build(e.target.value));
-  build("t_enrich");
+  build("tcells");
+
+  window.SHOOT = {
+    metric(k) { document.getElementById("metric").value = k; build(k); },
+    scroll(y) { window.scrollTo(0, y); },
+  };
 })();
+/* Screenshot hook — atlas/shoot.py drives the page through the URL fragment so
+   the animations in the README come from the real page. Inert without #shoot=. */
+(() => {
+  const m = /#shoot=(.*)$/.exec(location.hash);
+  if (!m) return;
+  const run = () => { try { new Function(decodeURIComponent(m[1]))(); }
+                      catch (e) { console.error("shoot", e); } };
+  setTimeout(run, 350);
+})();
+

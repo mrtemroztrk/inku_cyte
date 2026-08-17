@@ -73,6 +73,10 @@ def _jitter(n: int, width: float = 0.16) -> np.ndarray:
     return np.linspace(-width, width, n)
 
 
+def _q(q: float) -> str:
+    return "q < 0.001" if q < 0.001 else f"q = {q:.3f}"
+
+
 def _stars(q: float | None) -> str:
     if q is None or not np.isfinite(q):
         return ""
@@ -100,7 +104,8 @@ def _plain_log_axis(ax, values):
 # rotated text is slower to read and the full name is in the caption anyway.
 SHORT = {
     "PDA": "PDA", "PDA+CAF": "+CAF", "PDA+MAC": "+MAC", "PDA+CAF+MAC": "+CAF+MAC",
-    "control": "control", "kras low": "KRAS\n10 nM", "kras high": "KRAS\n100 nM",
+    "control": "control", "Dye": "dye\nonly",
+    "kras low": "KRAS\n10 nM", "kras high": "KRAS\n100 nM",
     "Src low": "SRC\n50 nM", "Src high": "SRC\n200 nM",
     "low kras+Src": "K+S\nlow", "high kras+Src": "K+S\nhigh",
 }
@@ -178,26 +183,30 @@ def strip(data: dict, ylabel: str, ref: float | None, log: bool,
     # significance brackets only where a pairwise test survives correction
     tests = [t for t in data.get("tests", [])
              if t.get("q") is not None and t["q"] < 0.05]
+    MAXB = 5      # more brackets than this and the figure is a ladder, not a plot
     if tests:
         idx = {g["label"]: i for i, g in enumerate(gs)}
-        top = max(max(g["values"]) for g in gs)
+        top = max(max(g["values"]) for g in gs) or 1
         step = 1.35 if log else 1.12
         y = top * (1.18 if log else 1.06)
-        for t in sorted(tests, key=lambda t: t["q"]):
+        for t in sorted(tests, key=lambda t: t["q"])[:MAXB]:
             if t["a"] in idx and t["b"] in idx:
                 _bracket(ax, idx[t["a"]], idx[t["b"]], y,
-                         f"q = {t['q']:.3f} {_stars(t['q'])}".strip(), log)
+                         f"{_q(t['q'])} {_stars(t['q'])}".strip(), log)
                 y *= step
     foot = _omnibus(gs)
     if not tests and foot:
         foot += " · no pairwise comparison survives BH correction"
+    elif len(tests) > MAXB:
+        foot += f" · {len(tests)} pairs survive BH; the {MAXB} smallest q are drawn, all are in the table"
     ax.set_title(title, pad=26)
     if subtitle:
         ax.annotate(subtitle, xy=(0, 1.015), xycoords="axes fraction", fontsize=8.5,
                     color="#555555", va="bottom", annotation_clip=False)
     if foot:
-        ax.annotate(foot, xy=(0, -0.30), xycoords="axes fraction", fontsize=8,
-                    color="#555555", annotation_clip=False)
+        lines = max(SHORT.get(g["label"], g["label"]).count("\n") for g in gs) + 2
+        ax.annotate(foot, xy=(0, -(0.14 + 0.085 * lines)), xycoords="axes fraction",
+                    fontsize=8, color="#555555", annotation_clip=False)
     fig.tight_layout()
     return _svg(fig)
 
@@ -259,8 +268,9 @@ def matched(data: dict, ylabel: str, title: str, subtitle: str = "",
 
 # ------------------------------------------------------------------- curves
 def curves(data: dict, ylabel: str, title: str, subtitle: str = "",
-           width: float = 7.4, height: float = 2.9) -> str:
-    """Growth: one panel per co-culture, shared y axis, wells behind the median."""
+           width: float = 7.4, height: float = 2.9, mark_day: float | None = None) -> str:
+    """Time course: one panel per group, shared y axis, every well a thin line,
+    the group median heavy. `mark_day` draws the timepoint the page is showing."""
     gs = data["groups"]
     fig, axes = plt.subplots(1, max(len(gs), 1), figsize=(width, height),
                              sharey=True)
@@ -270,14 +280,125 @@ def curves(data: dict, ylabel: str, title: str, subtitle: str = "",
         for w in g["wells"]:
             ax.plot(days, w["v"], color="#b6b6b6", lw=0.8, zorder=1)
         ax.plot(days, g["median"], color=MED, lw=2.0, zorder=3)
-        ax.set_title(f"{SHORT.get(g['label'], g['label'])}\nn = {g['n']}", fontsize=9)
-        ax.set_xlabel("days")
+        if mark_day is not None:
+            ax.axvline(mark_day, color=REF, lw=0.8, ls=":", zorder=2)
+        ax.set_title(f"{SHORT.get(g['label'], g['label'])}\nn = {g['n']} wells",
+                     fontsize=9)
+        ax.set_xlabel("days after seeding")
+        ax.set_xticks([0, 1, 2, 3, 4])
         ax.yaxis.grid(True)
         ax.set_ylim(bottom=0)
     axes[0].set_ylabel(ylabel)
+    axes[-1].legend(handles=[Line2D([], [], color="#b6b6b6", lw=0.8, label="one well"),
+                             Line2D([], [], color=MED, lw=2.0, label="group median")],
+                    loc="upper left", fontsize=7.5)
     fig.suptitle(title + ("  —  " + subtitle if subtitle else ""), x=0.005,
                  ha="left", fontsize=10, fontweight="bold")
     fig.tight_layout(rect=(0, 0, 1, 0.93))
+    return _svg(fig)
+
+
+# ------------------------------------------------------- side-by-side strips
+def strip_pair(left: dict, right: dict, ylabel: str, title: str,
+               subtitle: str = "", left_title: str = "wells with T cells",
+               right_title: str = "wells without T cells", width: float = 7.4,
+               height: float = 3.7, fmt: str = "{:.3f}") -> str:
+    """The same quantity in two sets of wells, one panel each, one y axis."""
+    fig, axes = plt.subplots(1, 2, figsize=(width, height), sharey=True)
+    # One y range for both panels, decided from all wells in both, with headroom
+    # for the significance brackets — sharey alone does not autoscale once a
+    # limit has been set.
+    allv = [v for data in (left, right) for g in data["groups"] for v in g["values"]]
+    ymax = max(allv) if allv else 1
+    MAXB = 4
+    nb = max(len([t for t in data.get("tests", []) if t.get("q") is not None and t["q"] < 0.05])
+             for data in (left, right))
+    axes[0].set_ylim(0, ymax * 1.06 * 1.12 ** min(nb, MAXB) * 1.04)
+    for ax, data, ptitle in zip(axes, (left, right), (left_title, right_title)):
+        gs = data["groups"]
+        if not gs:
+            ax.text(0.5, 0.5, "no wells", ha="center", va="center",
+                    transform=ax.transAxes)
+            ax.set_title(ptitle, fontsize=9)
+            continue
+        for i, g in enumerate(gs):
+            v = np.asarray(g["values"], float)
+            lo, hi = g["ci"]
+            ax.add_patch(plt.Rectangle((i - 0.20, min(lo, hi)), 0.40, abs(hi - lo),
+                                       facecolor=CI, edgecolor="none", alpha=0.55,
+                                       zorder=1))
+            ax.plot([i - 0.34, i + 0.34], [g["median"]] * 2, c=MED, lw=2.2, zorder=4,
+                    solid_capstyle="butt")
+            ax.scatter(i + _jitter(len(v)), v, s=22, facecolor=DOT, edgecolor="white",
+                       linewidth=0.7, zorder=3, alpha=0.85)
+        _xlabels(ax, [g["label"] for g in gs], [g["n"] for g in gs])
+        ax.tick_params(axis="x", labelsize=7.5)
+        ax.set_xlim(-0.6, len(gs) - 0.4)
+        ax.yaxis.grid(True)
+        ax.set_axisbelow(True)
+        tests = [t for t in data.get("tests", []) if t.get("q") is not None and t["q"] < 0.05]
+        idx = {g["label"]: i for i, g in enumerate(gs)}
+        y = ymax * 1.06
+        for t in sorted(tests, key=lambda t: t["q"])[:MAXB]:
+            _bracket(ax, idx[t["a"]], idx[t["b"]], y, _q(t["q"]), False)
+            y *= 1.12
+        foot = _omnibus(gs)
+        if not tests and foot:
+            foot += " · no pair survives BH"
+        elif len(tests) > MAXB:
+            foot += f" · {len(tests)} pairs survive BH; {MAXB} drawn, all in the table"
+        ax.set_title(ptitle, fontsize=9, pad=8)
+        if foot:
+            ax.annotate(foot, xy=(0, -0.40), xycoords="axes fraction", fontsize=7.5,
+                        color="#555555", annotation_clip=False)
+    axes[0].set_ylabel(ylabel)
+    fig.suptitle(title + ("  —  " + subtitle if subtitle else ""), x=0.005,
+                 ha="left", fontsize=10, fontweight="bold")
+    # Fixed margins: brackets and footers sit outside the axes on purpose and
+    # tight_layout would either fail or shrink the panels to nothing.
+    fig.subplots_adjust(left=0.10, right=0.99, top=0.84, bottom=0.30, wspace=0.12)
+    return _svg(fig)
+
+
+# ------------------------------------------------------------- layer profiles
+def profiles(data: dict, ylabel: str, title: str, subtitle: str = "",
+             width: float = 7.4, per_row: int = 4, row_h: float = 2.6) -> str:
+    """Signal by layer, one panel per group: every well a thin line, the median
+    heavy, the interquartile band shaded. x is the layer index — ordinal, so the
+    axis carries indices and no micron scale."""
+    gs = data["groups"]
+    n = max(len(gs), 1)
+    rows = int(np.ceil(n / per_row))
+    cols = min(per_row, n)
+    fig, axes = plt.subplots(rows, cols, figsize=(width, row_h * rows + 0.5),
+                             sharey=True, sharex=True, squeeze=False)
+    flat = axes.ravel()
+    for ax in flat[len(gs):]:
+        ax.axis("off")
+    for ax, g in zip(flat, gs):
+        z = np.arange(g["nz"])
+        for w in g["wells"]:
+            ax.plot(z, w["v"], color="#b6b6b6", lw=0.8, zorder=1)
+        ax.fill_between(z, g["q1"], g["q3"], color="#e0e0e0", zorder=2, lw=0)
+        ax.plot(z, g["median"], color=MED, lw=2.0, zorder=3)
+        pk = int(np.argmax(g["median"]))
+        ax.axvline(pk, color=REF, lw=0.7, ls=":", zorder=0)
+        ax.set_title(f"{SHORT.get(g['label'], g['label']).replace(chr(10), ' ')}"
+                     f"\nn = {g['n']} · peak z{pk:02d}", fontsize=9)
+        ax.set_xticks(range(0, g["nz"], 4))
+        ax.set_xticklabels([f"z{i:02d}" for i in range(0, g["nz"], 4)])
+        ax.tick_params(labelbottom=True)
+        ax.set_xlabel("layer (ordinal)")
+        ax.yaxis.grid(True)
+        ax.set_ylim(bottom=0)
+    for r in range(rows):
+        axes[r][0].set_ylabel(ylabel)
+    fig.suptitle(title + ("  —  " + subtitle if subtitle else ""), x=0.005,
+                 ha="left", fontsize=10, fontweight="bold")
+    H = row_h * rows + 0.5
+    fig.tight_layout(rect=(0, 0, 1, 1 - 0.32 / H))
+    # tight_layout reserves far more headroom than two title lines need
+    fig.subplots_adjust(top=1 - 0.78 / H)
     return _svg(fig)
 
 
@@ -329,29 +450,45 @@ def calibration(cal: dict, width: float = 7.4, height: float = 3.6) -> str:
 
 def build_all(d: dict) -> dict[str, str]:
     """Every group-page figure, keyed by the id the page uses."""
+    day = d["t"]["day"]
+    when = f"day {day:g} · {d['t']['hours']:g} h after seeding"
+    tw = when + " · wells that received T cells"
     return {
-        "enrich_coc": strip(
-            d["enrich_coculture"], "T-cell enrichment (× uniform)", 1.0, True,
-            "T-cell enrichment inside the organoid, by co-culture",
-            "day 4 · wells that received T cells"),
-        "enrich_cmp": strip(
-            d["enrich_compound"], "T-cell enrichment (× uniform)", 1.0, True,
-            "T-cell enrichment inside the organoid, by compound",
-            "day 4 · wells that received T cells"),
-        "dist": strip(
-            d["dist_coculture"], "median signed distance (µm)", 0.0, False,
-            "How far the T-cell signal sits from the organoid boundary",
-            "day 4 · negative = inside · confluent wells excluded"),
+        "tz_coc": profiles(
+            d["tz_coculture"], "T-cell signal (mm² per layer)",
+            "T-cell signal by layer, by co-culture", tw),
+        "tz_cmp": profiles(
+            d["tz_compound"], "T-cell signal (mm² per layer)",
+            "T-cell signal by layer, by compound", tw),
+        "tc_coc": strip(
+            d["tcells_coculture"], "T cells (≈ cells, whole well)", None, False,
+            "T-cell signal by co-culture", tw, fmt="{:.0f}"),
+        "tc_cmp": strip(
+            d["tcells_compound"], "T cells (≈ cells, whole well)", None, False,
+            "T-cell signal by compound", tw, fmt="{:.0f}"),
+        "tc_time": curves(
+            d["tcell_time"], "T cells (≈ cells, whole well)",
+            "T-cell signal over time, by co-culture", "wells that received T cells",
+            mark_day=day),
+        "dead_cmp": strip_pair(
+            d["dead_compound"]["t"], d["dead_compound"]["no_t"],
+            "dead-cell signal (mm²)", "Dead-cell signal by compound", when),
+        "tumour_cmp": strip_pair(
+            d["tumour_compound"]["t"], d["tumour_compound"]["no_t"],
+            "tumour signal (mm²)", "Tumour signal by compound", when),
+        "growth_cmp": strip_pair(
+            d["growth_compound"]["t"], d["growth_compound"]["no_t"],
+            "footprint area, this timepoint ÷ day 0", "Organoid growth by compound",
+            when),
         "growth": curves(
-            d["growth"], "organoid territory (mm²)",
-            "Organoid growth", "brightfield, independent of staining"),
+            d["growth"], "organoid footprint area (mm²)",
+            "Organoid footprint area over time, by co-culture",
+            "brightfield · all wells, with and without T cells", mark_day=day),
         "dead": matched(
             d["dead_matched"], "dead-cell signal (mm²)",
-            "Effect of adding T cells on dead-cell signal",
-            "day 4 · co-culture held constant"),
+            "Effect of adding T cells on dead-cell signal", when + " · co-culture held constant"),
         "tumour": matched(
             d["tumour_matched"], "tumour signal (mm²)",
-            "Effect of adding T cells on tumour signal",
-            "day 4 · co-culture held constant"),
+            "Effect of adding T cells on tumour signal", when + " · co-culture held constant"),
         "calib": calibration(d["calibration"]),
     }

@@ -112,22 +112,22 @@ def gif_slice(page: Path, out: Path) -> Path:
     for z in range(17):
         states.append(f"SHOOT.slice('up',{z})")
     states += ["SHOOT.slice('up',16)"] * 3
-    return frames_gif(page, out, states, 1180, 900, duration=260,
-                      crop=(20, 258, 1160, 770))
+    return frames_gif(page, out, states, 1180, 1000, duration=260,
+                      crop=(20, 345, 1160, 915))
 
 
 def gif_orbit(page: Path, out: Path) -> Path:
     """One full turn of the reconstruction."""
     states = [f"SHOOT.view({a},22)" for a in range(-180, 180, 18)]
-    return frames_gif(page, out, states, 1180, 900, duration=170,
-                      crop=(20, 300, 1160, 760))
+    return frames_gif(page, out, states, 1180, 1000, duration=170,
+                      crop=(20, 392, 1160, 905))
 
 
 def gif_zscan(page: Path, out: Path) -> Path:
     """The check page: photograph and reconstruction stepping through z together."""
     states = [f"SHOOT.z({z})" for z in range(17)] + ["SHOOT.z(16)"] * 2
     return frames_gif(page, out, states, 1340, 1150, duration=300,
-                      crop=(110, 330, 1270, 1092))
+                      crop=(100, 250, 1250, 1135))
 
 
 def gif_overlay(page: Path, out: Path) -> Path:
@@ -136,9 +136,10 @@ def gif_overlay(page: Path, out: Path) -> Path:
     This is the registration proof: if the voxels were displaced relative to the
     stain, the sweep would show two offset copies of the same pattern instead of
     one that fades in place."""
-    states = [f"SHOOT.z(9);SHOOT.overlay(true,{m})" for m in range(0, 101, 10)]
-    return frames_gif(page, out, states, 1320, 1400, duration=260,
-                      crop=(250, 330, 1090, 1170), max_w=560)
+    states = [f"SHOOT.z(9);SHOOT.view('top');SHOOT.overlay(true,{m})"
+              for m in range(0, 101, 10)]
+    return frames_gif(page, out, states, 1320, 1460, duration=260,
+                      crop=(280, 394, 1060, 1425), max_w=560)
 
 
 RECIPES = {"slice": gif_slice, "orbit": gif_orbit, "zscan": gif_zscan,

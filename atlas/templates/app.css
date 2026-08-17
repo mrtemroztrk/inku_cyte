@@ -93,7 +93,7 @@ p.lead { margin: 10px 0 18px; color: var(--ink2); max-width: 78ch; font-size: 13
 
 /* sahne araç çubuğu — kamera ve dilimleme; hiçbiri ölçümü değiştirmez */
 .scenebar {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   margin-bottom: 9px; font-size: 12.5px; color: var(--ink2);
 }
 .seg { display: inline-flex; border: 1px solid var(--rule2); border-radius: 2px;
@@ -109,9 +109,10 @@ p.lead { margin: 10px 0 18px; color: var(--ink2); max-width: 78ch; font-size: 13
   font: inherit; font-size: 12.5px; color: var(--ink); background: #fff;
   border: 1px solid var(--rule2); border-radius: 2px; padding: 2px 6px;
 }
-input.cut { width: 160px; accent-color: #2a78d6; }
+input.cut { width: 110px; accent-color: #2a78d6; }
+.checkbar input.cut { width: 160px; }        /* the z slider steps 17 layers */
 input.cut:disabled { opacity: .4; }
-.cutlabel { font-size: 12px; color: var(--muted); min-width: 122px;
+.cutlabel { font-size: 12px; color: var(--muted); min-width: 64px;
             font-variant-numeric: tabular-nums; }
 .slabnote { margin: 7px 0 0; font-size: 11.5px; color: var(--muted); min-height: 17px; }
 
@@ -303,6 +304,46 @@ details.method code { font-family: ui-monospace, Menlo, Consolas, monospace; fon
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
   margin-bottom: 14px; font-size: 12.5px; color: var(--ink2);
 }
+/* Katman çubuğu: satırın tamamı, iri tutamak, işaretli kademeler. Bir yığında
+   gezinmek bu sayfanın ana hareketi; küçük bir kaydırıcıda 17 kademeyi
+   tutturmak elde titremeye dönüşüyordu. */
+.zrow {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 12px;
+  font-size: 12.5px; color: var(--ink2);
+}
+.zbar { flex: 1 1 320px; min-width: 220px; padding: 2px 0 0; }
+.zbar input[type=range] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 26px;
+  margin: 0; background: transparent; cursor: pointer; display: block;
+}
+.zbar input[type=range]:disabled { opacity: .35; cursor: default; }
+.zbar input[type=range]::-webkit-slider-runnable-track {
+  height: 6px; background: #d9d8d3; border-radius: 3px;
+}
+.zbar input[type=range]::-moz-range-track {
+  height: 6px; background: #d9d8d3; border-radius: 3px;
+}
+.zbar input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 22px; height: 22px;
+  margin-top: -8px; border-radius: 50%; background: #2a78d6;
+  border: 3px solid #fff; box-shadow: 0 0 0 1px #2a78d6, 0 1px 3px rgba(0,0,0,.25);
+}
+.zbar input[type=range]::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%; background: #2a78d6;
+  border: 3px solid #fff; box-shadow: 0 0 0 1px #2a78d6, 0 1px 3px rgba(0,0,0,.25);
+}
+.zbar input[type=range]:focus-visible { outline: 2px solid #2a78d6; outline-offset: 2px; }
+/* kademe yazıları: tutamak merkezleri çubuğun 11 px içinden başlar ve biter */
+.zticklabels {
+  display: flex; justify-content: space-between; padding: 0 11px; margin-top: -2px;
+  font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.zticklabels span { flex: 0 0 0; width: 0; display: flex; justify-content: center;
+                    white-space: nowrap; }
+.zlabel { font-size: 12.5px; color: var(--ink2); min-width: 150px;
+          font-variant-numeric: tabular-nums; }
+.zlabel b { color: var(--ink); }
+#leftfig .scene { aspect-ratio: 520 / 704; }
 .chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .chk input { accent-color: #2a78d6; }
 
@@ -372,3 +413,54 @@ img.pubfig {
 .scene > img#ovl { z-index: 2; }
 .scene svg { z-index: 3; }
 .scene .hintbar, .scene .viewlabel { z-index: 4; }
+.barlbl { font-size: 12.5px; color: var(--muted); }
+.imgbox canvas { width: 100%; height: 100%; object-fit: contain; display: block; }
+.checkbar .chips .chip { padding: 2px 8px 2px 6px; }
+
+/* "?" — bir sayının nasıl hesaplandığını gösteren pencere. */
+button.qmark {
+  border: 1px solid var(--rule2); background: #fff; color: var(--muted);
+  border-radius: 50%; width: 15px; height: 15px; line-height: 1; padding: 0;
+  font-size: 10.5px; cursor: pointer; vertical-align: 1px;
+}
+button.qmark:hover { border-color: var(--ink); color: var(--ink); }
+dialog#explain {
+  max-width: 640px; border: 1px solid var(--rule2); border-radius: 3px;
+  padding: 22px 26px 18px; color: var(--ink); background: #fff;
+  box-shadow: 0 10px 40px rgba(0,0,0,.18);
+}
+dialog#explain::backdrop { background: rgba(20,20,18,.42); }
+dialog#explain h3 { margin: 0 0 10px; font-size: 15px; }
+dialog#explain .exform {
+  margin: 0 0 14px; padding: 8px 11px; background: #f4f3f0; border-radius: 2px;
+  font-size: 12.5px;
+}
+dialog#explain .exform code { font-family: ui-monospace, Menlo, Consolas, monospace; }
+dialog#explain ol { margin: 0 0 14px; padding-left: 20px; font-size: 12.5px;
+                    color: var(--ink2); line-height: 1.6; }
+dialog#explain ol li { margin-bottom: 5px; }
+dialog#explain .excav {
+  margin: 0 0 16px; font-size: 12.5px; color: var(--ink2); line-height: 1.6;
+  border-left: 3px solid #eda100; padding-left: 11px;
+}
+dialog#explain button.wide {
+  width: 100%; font: inherit; font-size: 13px; padding: 6px;
+  border: 1px solid var(--rule2); background: #fff; border-radius: 2px;
+  cursor: pointer;
+}
+.proofbar { display: flex; align-items: center; gap: 9px; margin-top: 9px; }
+.proofbar input.cut { width: 150px; }
+.proof img { width: 176px; }
+
+/* Grup sayfası: figür altı "hangi kuyular" bloğu, tek cümlelik çıkarım, deney
+   düzeni tablosu. */
+.takeaway { margin: 8px 0 4px; font-size: 13px; color: var(--ink);
+            border-left: 3px solid var(--ink); padding-left: 10px; line-height: 1.5; }
+.wellsblock { margin: 6px 0 4px; font-size: 11.5px; color: var(--ink2); line-height: 1.55; }
+.wellsblock ul { margin: 2px 0 0; padding-left: 16px; }
+.wellsblock li { margin-bottom: 2px; }
+table.cat { border-collapse: collapse; font-size: 12px; margin: 8px 0 4px; width: 100%; }
+table.cat th, table.cat td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+table.cat th { font-weight: 600; color: var(--ink2); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+#tsel { font: inherit; font-size: 13px; padding: 3px 6px; }
+.metricdesc { margin: 6px 0 12px; font-size: 13px; color: var(--ink2); max-width: 760px; }

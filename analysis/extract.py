@@ -61,8 +61,28 @@ PREFIX = {"green": "Green_Zstacks", "orange": "Orange_Tcells", "nir": "NIR_deadC
 
 # Floresan eşiği = plaka geneli arkaplan üstü kazanç (channel_stats.json off_hi) × kat.
 # Ana eşik THR_MAIN; alt/üst eşikler yalnızca duyarlılık kontrolü için hesaplanır.
-THR_MAIN = {"green": 0.60, "orange": 0.60, "nir": 0.35}
-THR_ALT = (0.40, 1.00)
+#
+# green neden 0,36: 0,60'ta eşik düzlemin p99,5'ine düşüyor ve arkaplan üstü
+# ışığın yalnızca %16'sını alıyordu; gözle net görünen hücreler maskeye
+# girmiyordu. Ölçüldü (B04 z09, hücreli bölge vs boş köşe, asgari 4 px ile):
+#     0,60 → 41 nesne, boş köşede 6  (gürültü oranı 0,15)
+#     0,36 → 99 nesne, boş köşede 5  (gürültü oranı 0,05)
+#     0,24 → 324 nesne, boş köşede 26 (gürültü oranı 0,08)
+# Yani eşiği düşürmek gürültüyü artırmıyor, azaltıyor — asgari boyut filtresiyle
+# birlikte. 0,24'te arkaplan beneklenmesi geri geliyor.
+#
+# orange neden 0,60'ta bırakıldı: orada bağımsız bir kısıt var. Ekim sayısından
+# türetilen kalibrasyon, eşik düştükçe hücre başına daha büyük alan veriyor ve
+# öngörülen hücre çapı büyüyor: ×0,80 → 9,5 µm, ×0,60 → 10,8 µm, ×0,40 → 12,9 µm.
+# Bir T hücresi 7–10 µm; ×0,40 fiziksel olarak imkânsız bir hücre öngörüyor, yani
+# oradaki fazlalık hücre değil taşma. 0,60 bu kısıtın içinde kalıyor.
+THR_MAIN = {"green": 0.36, "orange": 0.60, "nir": 0.35}
+THR_ALT = (0.24, 0.60)
+
+# Asgari bağlı bileşen boyutu (piksel). Düşük eşikte kalan tek piksellik benek
+# gürültüsünü atar; bir T hücresi bu ölçekte ~5 piksel olduğu için gerçek nesneye
+# dokunmaz.
+MIN_OBJ_PX = {"green": 4, "orange": 1, "nir": 1}
 
 # BF organoid maskesi — eşik plaka geneli sabit, kuyuya göre uyarlanmıyor.
 # (Kuyuya uyarlanan eşik her kuyuyu farklı ölçekler, kuyular karşılaştırılamaz olur.)
@@ -193,6 +213,19 @@ def focus_score(bf: np.ndarray) -> float:
 
 
 # ------------------------------------------------------------ fluorescence pass
+def _min_size(mask: np.ndarray, ch: str) -> np.ndarray:
+    """Asgari boyuttan küçük bağlı bileşenleri atar (bkz. MIN_OBJ_PX)."""
+    n_min = MIN_OBJ_PX.get(ch, 1)
+    if n_min <= 1 or not mask.any():
+        return mask
+    lab, n = ndimage.label(mask)
+    if not n:
+        return mask
+    sz = np.bincount(lab.ravel())
+    sz[0] = 0
+    return np.isin(lab, np.where(sz >= n_min)[0])
+
+
 def channel_pass(well: str, ch: str, stamp: str, thr: dict[str, float],
                  terr: np.ndarray) -> dict | None:
     paths = plane_paths(well, ch, stamp)
@@ -208,7 +241,7 @@ def channel_pass(well: str, ch: str, stamp: str, thr: dict[str, float],
         a = tifffile.imread(p).astype(np.float32)
         bgv = float(np.median(a))
         a -= bgv                                   # düzlem başına arkaplan
-        m = a > thr["main"]
+        m = _min_size(a > thr["main"], ch)
         area_z.append(int(m.sum()))
         area_z_in.append(int((m & terr).sum()))
         sum_z.append(round(float(a[m].sum()), 1))
@@ -216,7 +249,7 @@ def channel_pass(well: str, ch: str, stamp: str, thr: dict[str, float],
         np.maximum(mip, a, out=mip)
         binned[zi] = m[: H // 2 * 2, : W // 2 * 2].reshape(H // 2, 2, W // 2, 2).any((1, 3))
 
-    mask = mip > thr["main"]
+    mask = _min_size(mip > thr["main"], ch)
     out = {
         f"{ch}_bg_med": round(float(np.median(bg_z)), 3),
         f"{ch}_bg_drift": round(float(np.max(bg_z) - np.min(bg_z)), 3),

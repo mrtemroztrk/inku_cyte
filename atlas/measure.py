@@ -7,9 +7,9 @@ Aynı soruyu birbirinden bağımsız üç uzamsal eksende yanıtlar:
   yanal        — organoid kenarına işaretli uzaklık (içerisi −)  `bands`
   ikisi birden — z × uzaklık matrisi                            `zband`
 
-`zband` asıl cevaptır: "T hücreleri var" demek yetmez, hangi derinlikte ve
-kenardan ne kadar içeride oldukları ayrı bilgidir ve tek başına hiçbiri diğerinin
-yerine geçmez.
+`zband` ikisini birleştirir: "T hücreleri var" demek yetmez, hangi derinlikte ve
+kenardan ne kadar içeride oldukları ayrı bilgidir. Kuyu sayfasında artık
+çizilmiyor (ısı haritası okunmuyordu, kaldırıldı); ölçüm önbellekte duruyor.
 
 Eşikler, arkaplan çıkarma, BF maskesi ve bant kenarları `analysis/extract.py`'den
 birebir alınır — buradaki sayılar `analysis/out/` altındaki analizlerle aynı
@@ -41,6 +41,12 @@ import extract as E            # noqa: E402  eşikler, yollar, BF maskeleri, ban
 import dome as D               # noqa: E402  radyal uyum
 
 CH = ("green", "orange", "nir")
+
+# Önbellek şeması. Ölçümün ürettiği alanlar değiştiğinde artırılır; build.py
+# eski şemayla yazılmış bir kuyuyu `--force` beklemeden yeniden ölçer. Aksi
+# hâlde yeni bir alan (ör. `vox_focus`) sayfada sessizce yok sayılır ve 3B sahne
+# eski, sütunlu görünüme geri düşer.
+SCHEMA = 3                     # 2: vox_focus / focus_by_z eklendi; 3: vox_focus tam çözünürlük
 
 BIN_VOX = 2                    # 3B bulut için XY toplama → 5,6 µm/voksel
 BIN_MAP = 4                    # BF ayak izi haritası → 11,2 µm/piksel
@@ -130,19 +136,25 @@ def measure_frame(well: str, stamp: str, t_index: int) -> dict:
     nb = len(BANDS_UM) - 1
     band_area_px = np.bincount(band_idx.ravel(), minlength=nb)[:nb]
 
-    vox, by_z, by_z_in, zband, bands, totals = {}, {}, {}, {}, {}, {}
+    vox, vox_focus, by_z, by_z_in, zband, bands, totals = {}, {}, {}, {}, {}, {}, {}
+    focus_by_z = {}
     nz = 0
     for ch in CH:
         paths = E.plane_paths(well, ch, stamp)
         nz = len(paths)
         acc = None
         mip = np.zeros((H, W), np.float32)
+        best_v = np.full((H, W), -np.inf, np.float32)   # en parlak düzlem
+        best_z = np.zeros((H, W), np.int16)             # ve hangi düzlem olduğu
         az, az_in = [], []
         zb = np.zeros((nz, nb), np.int64)
         for zi, p in enumerate(paths):
             a = tifffile.imread(p).astype(np.float32)
             a -= float(np.median(a))          # düzlem başına arkaplan (z boyunca kayıyor)
-            m = a > thr[ch]["main"]
+            up = a > best_v
+            best_v = np.where(up, a, best_v)
+            best_z = np.where(up, zi, best_z).astype(np.int16)
+            m = E._min_size(a > thr[ch]["main"], ch)
             az.append(int(m.sum()))
             az_in.append(int((m & terr).sum()))
             zb[zi] = np.bincount(band_idx[m], minlength=nb)[:nb]
@@ -152,8 +164,26 @@ def measure_frame(well: str, stamp: str, t_index: int) -> dict:
                 acc = np.zeros((nz,) + c.shape, np.uint8)
             acc[zi] = c
 
-        mask = mip > thr[ch]["main"]
+        mask = E._min_size(mip > thr[ch]["main"], ch)
         tot = int(mask.sum())
+
+        # --- odak düzlemine indirgenmiş bulut ------------------------------
+        # 4× objektifin odak derinliği onlarca mikron: tek bir nesne birkaç
+        # düzlemde birden eşiği geçiyor ve 3B'de dikey bir sütuna dönüşüyor.
+        # Ölçülen yayılma bu kuyularda 2,6–3,0×. Her XY konumu en parlak
+        # olduğu tek düzleme yerleştirilince sütunlar kayboluyor ve geriye
+        # nesnenin gerçekten bulunduğu yüzey kalıyor.
+        # Odak bulutu **tam çözünürlükte** (piksel = voksel, 2,8 µm): her XY
+        # konumu tek bir düzlemde olduğundan voksel sayısı MIP maskesinin piksel
+        # sayısı kadar ve delta kodlama bunu küçük tutuyor. 2×2 toplama, tek
+        # piksellik zayıf hücreleri çeyrek ağırlığa düşürüp görünmez kılıyordu;
+        # burada her hücre olduğu şekilde, olduğu piksellerle çizilir.
+        fc = np.zeros((nz, H, W), np.uint8)
+        ys, xs = np.nonzero(mask)
+        if ys.size:
+            fc[best_z[ys, xs], ys, xs] = 1
+        vox_focus[ch] = _pack(fc)
+        focus_by_z[ch] = np.bincount(best_z[mask], minlength=nz).tolist() if tot else [0] * nz
         cnt = np.bincount(band_idx[mask], minlength=nb)[:nb]
 
         vox[ch] = _pack(acc)
@@ -197,6 +227,9 @@ def measure_frame(well: str, stamp: str, t_index: int) -> dict:
         "stamp": stamp,
         "grid": {"nz": nz, "h": acc.shape[1], "w": acc.shape[2], "bin": BIN_VOX},
         "vox": vox,
+        "grid_focus": {"nz": nz, "h": H, "w": W, "bin": 1},
+        "vox_focus": vox_focus,
+        "focus_by_z": focus_by_z,
         "terr_map": _pack_map(_bin_sum(terr, BIN_MAP)),
         "terr_shape": [terr.shape[0] // BIN_MAP, terr.shape[1] // BIN_MAP],
         "bf": {"terr_frac": round(f_terr, 5),

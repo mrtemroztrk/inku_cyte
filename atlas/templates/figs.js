@@ -83,16 +83,19 @@ const FIG = (() => {
      and are therefore not comparable to one another; each is read on its own.
      The T-cell panel carries a second tick row in cell equivalents — the same
      numbers divided by the calibrated area per cell, not a second measurement. */
-  function depth(host, d, T, cal, onLayer) {
+  function depth(host, d, T, cal, onLayer, zup) {
     const W = 600, H = 276, top = 46, bot = 62, left = 36, gap = 30;
     const pw = (W - left - gap * 2 - 10) / 3, ph = H - top - bot;
     const svg = el("svg", { class: "plot", viewBox: `0 0 ${W} ${H}`, role: "img" });
     const nz = d.by_z.green.length;
     const bh = ph / nz;
+    // Row order follows the 3D scene: z00 at the bottom, or on top when the
+    // scene is flipped — the figure and the scene must never disagree.
+    const row = z => zup ? z : nz - 1 - z;
 
     for (let i = 0; i < nz; i++) {
       if (i % 4 && i !== nz - 1) continue;
-      svg.append(text(left - 7, top + (nz - 1 - i + 0.7) * bh + 3, zpad(i),
+      svg.append(text(left - 7, top + (row(i) + 0.7) * bh + 3, zpad(i),
         { "text-anchor": "end", fill: MUTED, "font-size": 9.5 }));
     }
 
@@ -136,7 +139,7 @@ const FIG = (() => {
       }
 
       for (let z = 0; z < nz; z++) {
-        const y = top + (nz - 1 - z) * bh;
+        const y = top + row(z) * bh;
         const bw = p.vals[z] / xmax * pw;
         const r = el("rect", { x, y: y + 0.9, height: Math.max(bh - 1.8, 1),
           width: Math.max(bw, p.vals[z] > 0 ? 0.8 : 0), fill: T.colors[p.ch], rx: 1 });
@@ -152,175 +155,9 @@ const FIG = (() => {
       svg.append(el("line", { x1: x, y1: top, x2: x, y2: top + ph, stroke: "#c9c8c3" }));
     });
 
-    svg.append(text(left, H - 6, "z00 at the bottom · layer spacing is not to " +
-      "scale (the z step is not recorded)", { fill: MUTED, "font-size": 9.5 }));
-    host.replaceChildren(svg);
-    return svg;
-  }
-
-  // ======================================================== distance profile
-  /* Figure: where each population sits relative to the organoid boundary.
-
-     Enrichment is dimensionless, so all three channels share one axis. The axis
-     is logarithmic because the quantity is a ratio: 0.5 and 2 are equal and
-     opposite departures, and within one well tumour can reach 140× while T
-     cells fall to 0.05× — a linear axis would have to either clip or crush.
-     Exact zero (no signal at all in that band) is undefined on a log axis and
-     is drawn on its own row below an axis break, as open symbols. */
-  function bands(host, d, T, labels) {
-    const W = 600, H = 274, top = 22, bot = 82, left = 48, right = 76;
-    const pw = W - left - right, ph = H - top - bot - 16;
-    const svg = el("svg", { class: "plot", viewBox: `0 0 ${W} ${H}`, role: "img" });
-    const n = labels.length;
-    const zeroY = top + ph + 16;
-
-    let lo = 1, hi = 1;
-    for (const ch of ["green", "orange", "nir"])
-      for (const v of d.bands[ch].enrich)
-        if (v != null && v > 0) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
-    const l0 = Math.log10(Math.max(lo, 1e-3)), l1 = Math.log10(hi);
-    const pad = Math.max(0.12, (l1 - l0) * 0.08);
-    const y0 = l0 - pad, y1 = l1 + pad;
-    const Y = v => top + ph - (Math.log10(v) - y0) / Math.max(y1 - y0, 1e-9) * ph;
-    const X = i => left + (i + 0.5) * (pw / n);
-
-    for (const t of [0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 10, 25, 100, 1000]
-                    .filter(v => Math.log10(v) >= y0 && Math.log10(v) <= y1)) {
-      svg.append(el("line", { x1: left, y1: Y(t), x2: left + pw, y2: Y(t), stroke: RULE }));
-      svg.append(text(left - 7, Y(t) + 3.4, fmt(t, t < 1 ? 2 : 0),
-        { "text-anchor": "end", fill: MUTED }));
-    }
-    svg.append(el("line", { x1: left - 12, y1: top + ph + 5, x2: left + 4, y2: top + ph + 1,
-      stroke: "#c9c8c3", "stroke-width": 1.2 }));
-    svg.append(el("line", { x1: left - 12, y1: top + ph + 9, x2: left + 4, y2: top + ph + 5,
-      stroke: "#c9c8c3", "stroke-width": 1.2 }));
-    svg.append(text(left - 7, zeroY + 3.4, "none", { "text-anchor": "end", fill: MUTED }));
-
-    const bx = left + 5 * (pw / n);
-    svg.append(el("line", { x1: bx, y1: top, x2: bx, y2: top + ph, stroke: "#b9b8b3",
-      "stroke-dasharray": "3 3" }));
-    svg.append(text(bx - 6, top + 11, "inside organoid", { "text-anchor": "end",
-      fill: MUTED, "font-size": 10 }));
-    svg.append(text(bx + 6, top + 11, "outside", { fill: MUTED, "font-size": 10 }));
-    svg.append(el("line", { x1: left, y1: Y(1), x2: left + pw, y2: Y(1), stroke: INK2,
-      "stroke-width": 1.2 }));
-    svg.append(text(left + pw + 6, Y(1) + 3.4, "1.0 = uniform", { fill: INK2,
-      "font-size": 10 }));
-
-    const NAME = { green: "tumour", orange: "T cells", nir: "dead cells" };
-    for (const ch of ["green", "orange", "nir"]) {
-      const v = d.bands[ch].enrich;
-      const pts = [], zeros = [];
-      for (let i = 0; i < n; i++) {
-        if (v[i] == null) continue;                    // band lies outside the field
-        (v[i] > 0 ? pts : zeros).push([X(i), v[i] > 0 ? Y(v[i]) : zeroY, i, v[i]]);
-      }
-      const info = (i, val) =>
-        `<b>${labels[i]} µm</b><br><span class="k">${NAME[ch]}</span> ` +
-        (val > 0 ? `${fmt(val, 2)}× enrichment` : "no signal in this band") +
-        `<br><span class="k">signal area</span> ${fmt(d.bands[ch].area_mm2[i], 5)} mm²` +
-        `<br><span class="k">band area</span> ${fmt(d.band_area_mm2[i], 3)} mm²`;
-
-      if (pts.length > 1)
-        svg.append(el("polyline", { points: pts.map(p => p[0] + "," + p[1]).join(" "),
-          fill: "none", stroke: T.colors[ch], "stroke-width": 2,
-          "stroke-linejoin": "round", "stroke-linecap": "round" }));
-      for (const p of pts)
-        svg.append(hoverable(el("circle", { cx: p[0], cy: p[1], r: 3.4,
-          fill: T.colors[ch], stroke: "#fcfcfb", "stroke-width": 1.6 }), info(p[2], p[3])));
-      for (const p of zeros)
-        svg.append(hoverable(el("circle", { cx: p[0], cy: p[1], r: 3.2, fill: "#fcfcfb",
-          stroke: T.colors[ch], "stroke-width": 1.6 }), info(p[2], 0)));
-      const last = pts[pts.length - 1] || zeros[zeros.length - 1];
-      if (last)
-        svg.append(text(last[0] + 7, last[1] + 3.4, NAME[ch],
-          { fill: T.colors[ch], "font-size": 10.5, "font-weight": 600 }));
-    }
-
-    labels.forEach((l, i) => {
-      if (i % 2 && i !== labels.length - 1) return;
-      svg.append(text(X(i), zeroY + 18, l, { "text-anchor": "middle", fill: MUTED,
-        "font-size": 9.5 }));
-    });
-    svg.append(text(left + pw / 2, H - 22,
-      "signed distance to the organoid boundary (µm)",
-      { "text-anchor": "middle", fill: INK2, "font-size": 10.5 }));
-    svg.append(text(left + pw / 2, H - 9,
-      "negative = inside the brightfield territory · positive = outside",
-      { "text-anchor": "middle", fill: MUTED, "font-size": 9.5 }));
-    svg.append(text(12, top + ph / 2, "enrichment (× expected if uniform)",
-      { "text-anchor": "middle", fill: INK2, "font-size": 10.5,
-        transform: `rotate(-90 12 ${top + ph / 2})` }));
-    host.replaceChildren(svg);
-    return svg;
-  }
-
-  // ====================================================== depth × distance
-  /* Figure: are depth and lateral position independent?
-
-     Each cell is the share of that channel's own total signal. Panels are
-     normalised separately, so a panel says where its population sits, never how
-     much of it there is relative to another channel. Sequential single-hue ramp:
-     colour carries magnitude, not identity. */
-  function zband(host, d, T, labels) {
-    // Wide figures are drawn at their display width so the type is the same
-    // size as in the half-width figures; a 600-unit viewBox stretched to
-    // 1200 px doubles every label.
-    const W = 1200, H = 340, top = 48, bot = 88, left = 54, gap = 40;
-    const nz = d.by_z.green.length, nb = labels.length;
-    const pw = (W - left - gap * 2 - 24) / 3, ph = H - top - bot;
-    const cw = pw / nb, ch_ = ph / nz;
-    const svg = el("svg", { class: "plot", viewBox: `0 0 ${W} ${H}`, role: "img" });
-
-    for (let i = 0; i < nz; i++) {
-      if (i % 4 && i !== nz - 1) continue;
-      svg.append(text(left - 6, top + (nz - 1 - i + 0.7) * ch_ + 3, zpad(i),
-        { "text-anchor": "end", fill: MUTED, "font-size": 9.5 }));
-    }
-
-    [["green", "tumour"], ["orange", "T cells"], ["nir", "dead cells"]]
-      .forEach(([ch, lbl], k) => {
-        const m = d.zband[ch];
-        let tot = 0;
-        for (const row of m) for (const v of row) tot += v;
-        const x0 = left + k * (pw + gap);
-        const hiv = tot ? Math.max(...m.flat()) / tot : 1;
-        svg.append(text(x0, top - 22, lbl, { fill: INK, "font-size": 11.5,
-          "font-weight": 600 }));
-        svg.append(text(x0, top - 10, tot
-          ? `darkest cell = ${fmt(hiv * 100, 1)} % of this channel`
-          : "no signal", { fill: MUTED, "font-size": 10 }));
-
-        for (let z = 0; z < nz; z++) for (let b = 0; b < nb; b++) {
-          const share = tot ? m[z][b] / tot : 0;
-          const q = hiv > 0 ? Math.min(1, share / hiv) : 0;
-          const col = share === 0 ? "#f7f6f4"
-            : T.seq[Math.min(T.seq.length - 1, Math.floor(Math.pow(q, 0.62) * T.seq.length))];
-          svg.append(hoverable(el("rect", { x: x0 + b * cw, y: top + (nz - 1 - z) * ch_,
-            width: cw - 0.6, height: ch_ - 0.6, fill: col }),
-            `<b>${lbl}</b><br><span class="k">layer</span> ${zpad(z)}` +
-            `<br><span class="k">distance</span> ${labels[b]} µm` +
-            `<br><span class="k">share</span> ${fmt(share * 100, 2)} % of channel total`));
-        }
-        const bx = x0 + 5 * cw;
-        svg.append(el("line", { x1: bx, y1: top, x2: bx, y2: top + ph, stroke: "#0b0b0b",
-          "stroke-width": 1, opacity: .45 }));
-            svg.append(text(x0, top + ph + 13, "inside", { fill: MUTED, "font-size": 9.5 }));
-        svg.append(text(x0 + pw, top + ph + 13, "outside", { fill: MUTED,
-          "font-size": 9.5, "text-anchor": "end" }));
-      });
-
-    const sw = 104, sx = left, sy = H - 36;
-    T.seq.forEach((c, i) => svg.append(el("rect",
-      { x: sx + i * (sw / T.seq.length), y: sy, width: sw / T.seq.length + .4,
-        height: 8, fill: c })));
-    svg.append(text(sx, sy + 20, "0", { fill: MUTED, "font-size": 9.5 }));
-    svg.append(text(sx + sw, sy + 20, "panel maximum", { fill: MUTED, "font-size": 9.5,
-      "text-anchor": "end" }));
-    svg.append(text(sx + sw + 16, sy + 7,
-      "each panel is scaled to its own total — panels are not comparable to each other",
+    svg.append(text(left, H - 6, (zup ? "z00 on top" : "z00 at the bottom") +
+      " · layer spacing is not to scale (the z step is not recorded)",
       { fill: MUTED, "font-size": 9.5 }));
-
     host.replaceChildren(svg);
     return svg;
   }
@@ -328,7 +165,7 @@ const FIG = (() => {
   // ============================================================ time course
   /* Figure: how each quantity changed over the four days.
      Four quantities, four units, four panels. */
-  function timecourse(host, frames, times, T, tcur, cal) {
+  function timecourse(host, frames, times, T, tcur, cal, onTime) {
     const W = 1200, H = 250, top = 48, bot = 48, left = 16, gap = 36;
     const pw = (W - left - gap * 3 - 24) / 4, ph = H - top - bot;
     const svg = el("svg", { class: "plot", viewBox: `0 0 ${W} ${H}`, role: "img" });
@@ -374,11 +211,15 @@ const FIG = (() => {
       vals.forEach((v, i) => {
         const extra = s.second ? `<br><span class="k">derived</span> ≈ ` +
           `${fmt(s.second.conv(v), 0)} cells` : "";
-        svg.append(hoverable(el("circle", { cx: X(days[i]), cy: Y(v),
-          r: i === tcur ? 4.2 : 2.4, fill: i === tcur ? s.col : "#fcfcfb", stroke: s.col,
-          "stroke-width": i === tcur ? 1.6 : 1.4 }),
+        const mk = hoverable(el("circle", { cx: X(days[i]), cy: Y(v),
+          r: i === tcur ? 4.6 : 2.6, fill: i === tcur ? s.col : "#fcfcfb", stroke: s.col,
+          "stroke-width": i === tcur ? 1.8 : 1.4 }),
           `<b>${s.lbl}</b><br><span class="k">day</span> ${fmt(days[i], 2)}` +
-          `<br><span class="k">value</span> ${fmt(v, s.dec)} ${s.unit.split(" ")[0]}${extra}`));
+          `<br><span class="k">value</span> ${fmt(v, s.dec)} ${s.unit.split(" ")[0]}` +
+          extra + (onTime ? "<br><span class=\"k\">click to see the images</span>" : ""));
+        if (onTime) { mk.style.cursor = "pointer";
+                      mk.addEventListener("click", () => onTime(i)); }
+        svg.append(mk);
       });
       svg.append(el("line", { x1: x0, y1: top + ph, x2: x0 + pw, y2: top + ph,
         stroke: "#c9c8c3" }));
@@ -413,8 +254,37 @@ const FIG = (() => {
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
 
+  /* A "?" button that opens the definition of a quantity: its formula, how it is
+     computed, and what it does not measure. A table that shows a number without
+     showing where it came from is asking to be trusted; in a scientific context
+     that is not enough. Definitions live in atlas/defs.py, one source for all
+     pages. */
+  function explain(key) {
+    const d = (window.DEFS || {})[key];
+    if (!d) return;
+    const dlg = document.getElementById("explain");
+    dlg.querySelector(".exbody").innerHTML =
+      `<h3>${d.title}</h3>` +
+      `<p class="exform"><code>${d.formula}</code></p>` +
+      "<ol>" + d.steps.map(x => `<li>${x}</li>`).join("") + "</ol>" +
+      (d.caveat ? `<p class="excav">${d.caveat}</p>` : "");
+    dlg.showModal();
+  }
+
+  function qmark(key) {
+    if (!(window.DEFS || {})[key]) return "";
+    const b = document.createElement("button");
+    b.className = "qmark";
+    b.type = "button";
+    b.textContent = "?";
+    b.title = "how this is computed";
+    b.addEventListener("click", () => explain(key));
+    return b;
+  }
+
   /* Journal-style table: a caption above, a units row under the header, a
-     footnote below. Numeric columns are right-aligned and tabular. */
+     footnote below. Numeric columns are right-aligned and tabular. A row whose
+     first cell carries {def:"key"} gets a "?" next to it. */
   function table(spec) {
     const wrap = document.createElement("div");
     const t = document.createElement("table");
@@ -455,13 +325,17 @@ const FIG = (() => {
     const tr = document.createElement("tr");
     for (const c of cells) {
       const e = document.createElement(tag);
-      if (c && typeof c === "object") { e.innerHTML = c.html; if (c.cls) e.className = c.cls; }
-      else e.textContent = c;
+      if (c && typeof c === "object") {
+        e.innerHTML = c.html != null ? c.html : "";
+        if (c.cls) e.className = c.cls;
+        if (c.def) { const b = qmark(c.def); if (b) e.append(" ", b); }
+      } else e.textContent = c;
       tr.append(e);
     }
     return tr;
   }
 
-  return { depth, bands, zband, timecourse, download, downloadCSV, table, fmt, ticks,
-           untip, hoverable, el, text, zpad, INK, INK2, MUTED, RULE };
+  return { depth, timecourse, download, downloadCSV, table, fmt, ticks,
+           untip, hoverable, el, text, zpad, explain, qmark,
+           INK, INK2, MUTED, RULE };
 })();

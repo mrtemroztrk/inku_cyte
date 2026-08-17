@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from concurrent.futures import ProcessPoolExecutor
@@ -62,8 +63,9 @@ def plate_meta() -> dict:
         }
     stamps = E.timepoints()
     hours = list(tp.hours_from_start)
-    times = [{"t": i, "stamp": s, "hours": round(float(h), 1)}
-             for i, (s, h) in enumerate(zip(stamps, hours))]
+    dts = list(tp.datetime) if "datetime" in tp.columns else [""] * len(hours)
+    times = [{"t": i, "stamp": s, "hours": round(float(h), 1), "datetime": str(dt)}
+             for i, (s, h, dt) in enumerate(zip(stamps, hours, dts))]
     return {"wells": wells, "times": times, "excluded": sorted(excluded)}
 
 
@@ -72,6 +74,24 @@ def imaged_wells() -> list[str]:
 
 
 # ------------------------------------------------------------------- türetme
+def _half_range(z: np.ndarray) -> list[int] | None:
+    """Sinyalin en az yarısını taşıyan en dar bitişik katman aralığı [lo, hi]."""
+    tot = float(z.sum())
+    if tot <= 0:
+        return None
+    n = len(z)
+    best = None
+    for lo in range(n):
+        acc = 0.0
+        for hi in range(lo, n):
+            acc += z[hi]
+            if acc >= tot / 2:
+                if best is None or hi - lo < best[1] - best[0]:
+                    best = [lo, hi]
+                break
+    return best
+
+
 def derive(frames: list[dict], cal: dict) -> None:
     """Ölçülen sinyalden raporlanacak büyüklükleri türetir; frames yerinde güncellenir.
 
@@ -96,10 +116,6 @@ def derive(frames: list[dict], cal: dict) -> None:
     ölçüm değil, toplamın z ekseninde dağılımıdır ve figür altyazısında böyle
     yazar. Dönüşüm katsayısı kare başına değişir (`layer_cell_per_mm2`).
 
-    Bant (uzaklık) profilinde böyle bir sorun yok: bantlar MIP maskesinden
-    hesaplanıyor, bant alanlarının toplamı MIP alanına birebir eşit, dolayısıyla
-    global ölçek doğrudan uygulanabilir.
-
     Tümör hücreye çevrilmez — kalibrasyon reddedildi (imkânsız hücre boyutu).
     Hacim µm²·katman olarak verilir: z adımı kayıtlı olmadığı için µm³ verilemez,
     z adımıyla çarpılınca µm³ olur.
@@ -123,18 +139,19 @@ def derive(frames: list[dict], cal: dict) -> None:
         for key, ch in (("tumour", "green"), ("tcell", "orange"), ("dead", "nir")):
             z = np.asarray(f["by_z"][ch], float)
             d[f"{key}_area_by_z_mm2"] = [round(v * px_mm2, 6) for v in z]
-        for key, ch in (("tumour", "green"), ("tcell", "orange"), ("dead", "nir")):
-            b = np.asarray(f["bands"][ch]["px"], float)
-            d[f"{key}_area_by_band_mm2"] = [round(v * px_mm2, 6) for v in b]
+            # en parlak katman ve sinyalin yarısını taşıyan en dar katman aralığı:
+            # "hangi katmanda ne kadar var" sorusunun iki sayılık özeti
+            d[f"{key}_peak_z"] = int(np.argmax(z)) if z.sum() > 0 else None
+            d[f"{key}_half_z"] = _half_range(z)
+
+        # Uzaklık bantları ve teritorya içi/dışı zenginleşme sayfada artık yok:
+        # organoidin yüzeyi 3B'de bilinmiyor, "içeride/dışarıda" ve "kenara
+        # uzaklık" 2B ayak izine göre tanımlıydı ve okur bunu savunulamaz
+        # buluyordu. Ölçüm önbellekte duruyor; türetilmiş sayı üretilmiyor.
 
         # --- türetilmiş: hücre sayısı (yalnız T hücresi; tümör reddedildi)
         n_t = o["area_mm2"] * 1e6 / per_cell
         d["tcells"] = round(n_t, 1)
-        d["tcells_in_terr"] = (round(n_t * o["frac_in_terr"], 1)
-                               if o["frac_in_terr"] is not None else None)
-        # bant profili MIP maskesinden geliyor → global ölçek doğrudan geçerli
-        d["tcells_by_band"] = [round(v * 1e6 / per_cell, 1)
-                               for v in d["tcell_area_by_band_mm2"]]
         # katman profili için dağıtım katsayısı (yukarıdaki gerekçe)
         z_sum = float(np.sum(d["tcell_area_by_z_mm2"]))
         d["layer_cell_per_mm2"] = round(n_t / z_sum, 2) if z_sum > 0 else 0.0
@@ -156,15 +173,32 @@ def well_payload(well: str, meta: dict, cal: dict, force: bool = False) -> dict:
     """
     CACHE.mkdir(parents=True, exist_ok=True)
     fp = CACHE / f"{well}.json"
-    if fp.is_file() and not force:
+    if cache_fresh(well) and not force:
         return json.loads(fp.read_text())
 
     frames = [M.measure_frame(well, t["stamp"], t["t"]) for t in meta["times"]]
-    pay = {"well": well, "meta": meta["wells"][well], "times": meta["times"],
+    pay = {"well": well, "schema": M.SCHEMA,
+           "meta": meta["wells"][well], "times": meta["times"],
            "frames": frames,
            "um_per_px": calib.UM_PER_PX, "voxel_um": round(calib.UM_PER_PX * M.BIN_VOX, 3)}
     fp.write_text(json.dumps(pay, ensure_ascii=False, separators=(",", ":")))
     return pay
+
+
+def cache_fresh(well: str) -> bool:
+    """Önbellek var mı ve bugünkü ölçüm şemasıyla mı yazılmış?
+
+    Şema eski ise dosya *var* ama eksik: ölçüm kodu yeni bir alan üretmeye
+    başlamışsa (ör. odak düzlemine indirgenmiş bulut) o alan burada yoktur ve
+    sayfa onu göstermez. Böyle bir kuyu yeniden ölçülecek kuyu sayılır."""
+    fp = CACHE / f"{well}.json"
+    if not fp.is_file():
+        return False
+    # Yalnızca başı okunur; dosyalar birkaç MB ve şema anahtarı en başta.
+    with fp.open() as fh:
+        head = fh.read(200)
+    m = re.search(r'"schema":\s*(\d+)', head)
+    return bool(m) and int(m.group(1)) >= M.SCHEMA
 
 
 def load_derived(well: str, cal: dict, with_thumbs: bool = False) -> dict | None:
@@ -215,7 +249,7 @@ def plate_summary(meta: dict, cal: dict) -> dict:
             "growth": (round(last["derived"]["organoid_mm2"] / first["derived"]["organoid_mm2"], 2)
                        if first["derived"]["organoid_mm2"] > 0 else None),
             "tcells": last["derived"]["tcells"],
-            "t_enrich": last["totals"]["orange"]["enrich_terr"],
+            "tcell_peak_z": last["derived"]["tcell_peak_z"],
             "dead_mm2": last["derived"]["dead_mm2"],
             "dome_dominant": bool(last["dome"] and last["dome"]["dominant"]),
             "dome_r90_um": (last["dome"] or {}).get("r90_um"),
@@ -255,9 +289,12 @@ def main() -> None:
         wells = imaged_wells()
 
     if args.measure or args.all or args.check or args.wells:
-        todo = [w for w in wells if args.force or not (CACHE / f"{w}.json").is_file()]
+        todo = [w for w in wells if args.force or not cache_fresh(w)]
+        stale = [w for w in todo if (CACHE / f"{w}.json").is_file()]
         print(f"[ölçüm] {len(todo)}/{len(wells)} kuyu  ·  {args.jobs} iş  ·  "
-              f"kuyu başına 13 zaman noktası")
+              f"kuyu başına 13 zaman noktası"
+              + (f"  ·  {len(stale)} kuyu eski şemayla ölçülmüş, yenileniyor"
+                 if stale and not args.force else ""))
         if todo:
             jobs = [(w, meta, cal, args.force) for w in todo]
             t0 = time.time()
@@ -292,13 +329,10 @@ def main() -> None:
         # Grup karşılaştırmaları tüm kuyuları görmek zorunda; kısmi bir ölçümle
         # üretilirse istatistik yanıltıcı olur.
         if len(built) >= len(imaged_wells()):
-            import figures
             import groups
-            g = groups.build()
-            (SITE / "groups.html").write_text(
-                P.groups_page(g, figures.build_all(g)), encoding="utf-8")
+            g = groups.write_pages()
             print(f"[sayfa] grup karşılaştırmaları: {g['n_wells']} kuyu "
-                  f"({g['n_excluded']} QC dışı)")
+                  f"({g['n_excluded']} QC dışı) · {len(g['times'])} zaman noktası")
         else:
             print(f"[sayfa] grup karşılaştırmaları atlandı — {len(built)}/"
                   f"{len(imaged_wells())} kuyu ölçülmüş")

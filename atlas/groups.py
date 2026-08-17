@@ -15,6 +15,8 @@ uyar; o kurallar koşul başına 2–17 kuyuluk örneklem için seçilmişti:
   * Çoklu karşılaştırma Benjamini-Hochberg ile düzeltilir (`q`).
   * Eşleşmiş karşılaştırma tercih edilir: ko-kültür hem ölümü hem T dağılımını
     bağımsız olarak etkilediği için sabit tutulur.
+  * Konum yalnızca katman olarak raporlanır (katman başına sinyal); organoide
+    göre içeride/dışarıda ya da kenara uzaklık hesaplanmaz — yüzey bilinmiyor.
 
     python3 atlas/groups.py
 """
@@ -42,12 +44,29 @@ CACHE = HERE / "cache" / "wells"
 SITE = HERE / "site"
 
 COCULTURE_ORDER = ["PDA", "PDA+CAF", "PDA+MAC", "PDA+CAF+MAC"]
-COMPOUND_ORDER = ["control", "kras low", "kras high", "Src low", "Src high",
+COMPOUND_ORDER = ["control", "Dye", "kras low", "kras high", "Src low", "Src high",
                   "low kras+Src", "high kras+Src"]
+# Plaka haritasındaki adların okunur karşılığı ve dozu (nM). "Dye" = bileşiksiz,
+# yalnız boya; T hücresi almayan kuyularda ek bir kontrol grubudur.
+COMPOUND_LABEL = {
+    "control": "control (vehicle)", "Dye": "dye only, no compound",
+    "kras low": "KRAS inhibitor 10 nM", "kras high": "KRAS inhibitor 100 nM",
+    "Src low": "SRC inhibitor 50 nM", "Src high": "SRC inhibitor 200 nM",
+    "low kras+Src": "KRAS 10 nM + SRC 50 nM", "high kras+Src": "KRAS 100 nM + SRC 200 nM",
+}
+COCULTURE_LABEL = {
+    "PDA": "PDA organoids alone (2000 tumour cells)",
+    "PDA+CAF": "PDA + cancer-associated fibroblasts (4000 CAFs)",
+    "PDA+MAC": "PDA + macrophages (8000)",
+    "PDA+CAF+MAC": "PDA + CAFs (4000) + macrophages (8000)",
+}
 
 
 def load_wells() -> list[dict]:
-    """Kuyu başına özet: son zaman noktası + zaman serisi."""
+    """Kuyu başına: plaka haritası + her büyüklüğün 13 noktalık zaman serisi.
+
+    Grup sayfası herhangi bir zaman noktasında kurulabilsin diye her şey seri
+    olarak tutulur; `build(ti)` istenen indeksten okur."""
     import build
 
     cal = calib.load()
@@ -55,64 +74,98 @@ def load_wells() -> list[dict]:
     for fp in sorted(CACHE.glob("*.json")):
         pay = build.load_derived(fp.stem, cal)
         m, F = pay["meta"], pay["frames"]
-        last = F[-1]
+        D = [f["derived"] for f in F]
         out.append({
             **{k: m[k] for k in ("well", "coculture", "compound", "concentration",
-                                 "has_tcells", "excluded")},
+                                 "has_tcells", "has_cafs", "has_macrophages",
+                                 "excluded")},
             "days": [t["hours"] / 24 for t in pay["times"]],
-            "organoid": [f["derived"]["organoid_mm2"] for f in F],
-            "tumour": [f["derived"]["tumour_mm2"] for f in F],
-            "tcell_series": [f["derived"]["tcell_mm2"] for f in F],
-            "dead_series": [f["derived"]["dead_mm2"] for f in F],
-            "t_enrich": last["totals"]["orange"]["enrich_terr"],
-            "tcells": last["derived"]["tcells"],
-            "dead": last["derived"]["dead_mm2"],
-            "organoid_last": last["derived"]["organoid_mm2"],
-            "tumour_last": last["derived"]["tumour_mm2"],
-            "growth": (last["derived"]["organoid_mm2"] / F[0]["derived"]["organoid_mm2"]
-                       if F[0]["derived"]["organoid_mm2"] > 0 else None),
-            # T hücrelerinin kenara göre medyan konumu: negatif = içeride
-            "t_median_dist": last["bands"]["orange"]["median_signed_dist_um"],
-            "terr_frac": last["bf"]["terr_frac"],
+            "organoid": [d["organoid_mm2"] for d in D],
+            "tumour": [d["tumour_mm2"] for d in D],
+            "tcell_mm2": [d["tcell_mm2"] for d in D],
+            "tcells": [d["tcells"] for d in D],
+            "dead": [d["dead_mm2"] for d in D],
+            # katman başına T hücresi sinyali (mm², düzlem maskeleri) — "hangi
+            # katmanda ne kadar" sorusunun kuyu başına cevabı
+            "tcell_by_z": [d["tcell_area_by_z_mm2"] for d in D],
+            "tcell_peak_z": [d["tcell_peak_z"] for d in D],
+            # ayak izi büyümesi: t / t0 (boyutsuz)
+            "growth": [(d["organoid_mm2"] / D[0]["organoid_mm2"]
+                        if D[0]["organoid_mm2"] > 0 else None) for d in D],
         })
     return out
 
 
-# İşaretli uzaklık, teritoryanın kadrajda kapladığı alana duyarlı: teritorya
-# görüşün tamamına yakınını kaplayınca her nokta zorunlu olarak "içeride" çıkar
-# ve medyan uzaklık infiltrasyonu değil konfluensi ölçer. Ölçüldü: +T kuyularında
-# teritorya oranı ile medyan uzaklık arasında Spearman ρ = −0,50 (p = 0,008,
-# n = 27), ve PDA+MAC grubunun 6 kuyusundan 4'ünde teritorya alanın %95'ini
-# kaplıyor. Bu yüzden uzaklık figürü yoğun kuyuları dışarıda bırakır.
-CONFLUENT_MAX = 0.70
+def times() -> list[dict]:
+    """Zaman noktaları: indeks, saat, çekim zamanı (timepoints.csv'den, aynen)."""
+    import build
+    return build.plate_meta()["times"]
 
 
-def confluence_confound(wells: list[dict]) -> dict:
-    """Uzaklık ölçüsünün teritorya büyüklüğüne bağımlılığı — figürde raporlanır."""
-    from scipy import stats
+def catalogue(wells: list[dict]) -> list[dict]:
+    """Deney düzeni, satır satır: hangi kuyuya ne uygulandı.
 
-    sel = [w for w in wells if w["has_tcells"] and not w["excluded"]
-           and w["t_median_dist"] is not None and w["terr_frac"] is not None]
-    if len(sel) < 5:
-        return {"n": len(sel)}
-    rho, p = stats.spearmanr([w["terr_frac"] for w in sel],
-                             [w["t_median_dist"] for w in sel])
-    dropped = [w["well"] for w in sel if w["terr_frac"] > CONFLUENT_MAX]
-    return {"n": len(sel), "rho": round(float(rho), 3), "p": round(float(p), 5),
-            "cut": CONFLUENT_MAX, "dropped": sorted(dropped),
-            "n_dropped": len(dropped)}
+    Sayfada tablo olarak basılır; her figürün altındaki kuyu listeleri buraya
+    işaret eder. "n = 7" bir figürde yedi kuyu demektir, ve hangi yedi kuyu olduğu
+    her zaman yazılıdır."""
+    rows = {}
+    for w in wells:
+        key = (w["coculture"], w["compound"], w["concentration"], w["has_tcells"])
+        r = rows.setdefault(key, {"coculture": w["coculture"], "compound": w["compound"],
+                                  "concentration": w["concentration"],
+                                  "has_tcells": w["has_tcells"], "wells": [],
+                                  "excluded": []})
+        (r["excluded"] if w["excluded"] else r["wells"]).append(w["well"])
+    order = {c: i for i, c in enumerate(COCULTURE_ORDER)}
+    corder = {c: i for i, c in enumerate(COMPOUND_ORDER)}
+    return sorted(rows.values(), key=lambda r: (order.get(r["coculture"], 99),
+                                                corder.get(r["compound"], 99),
+                                                r["has_tcells"]))
 
 
-def strip_series(wells: list[dict], key: str, groupby: str, order: list[str],
-                 only=None) -> dict:
-    """Grup başına nokta bulutu + medyan + önyükleme GA'sı."""
+def at(w: dict, key: str, ti: int):
+    v = w[key][ti]
+    return None if v is None else v
+
+
+# Uzaklık bantları ve teritorya içi zenginleşme bu sayfada artık yok. Organoidin
+# yüzeyi z'de bilinmiyor; "içeride / dışarıda" ve "kenara uzaklık" 2B ayak izine
+# göre tanımlıydı ve savunulamaz bulundu. Yerine, savunulabilir olan: katman
+# başına ne kadar sinyal var ve gruplar arasında bu profil nasıl değişiyor.
+
+
+def layer_profile(wells: list[dict], key: str, ti: int, groupby: str,
+                  order: list[str], only=None) -> dict:
+    """Grup başına katman profili: kuyu eğrileri + katman başına medyan."""
+    groups = []
+    for g in order:
+        sel = [w for w in wells
+               if w[groupby] == g and not w["excluded"]
+               and (only is None or only(w)) and at(w, key, ti) is not None]
+        if not sel:
+            continue
+        M = np.array([at(w, key, ti) for w in sel], float)
+        pk = int(np.argmax(np.median(M, axis=0)))
+        groups.append({"label": g, "n": len(sel), "nz": int(M.shape[1]), "peak": pk,
+                       "median": [round(float(v), 6) for v in np.median(M, axis=0)],
+                       "q1": [round(float(v), 6) for v in np.percentile(M, 25, axis=0)],
+                       "q3": [round(float(v), 6) for v in np.percentile(M, 75, axis=0)],
+                       "wells": [{"well": w["well"],
+                                  "v": [round(float(x), 6) for x in at(w, key, ti)]}
+                                 for w in sel]})
+    return {"groups": groups}
+
+
+def strip_series(wells: list[dict], key: str, ti: int, groupby: str,
+                 order: list[str], only=None) -> dict:
+    """Grup başına nokta bulutu + medyan + önyükleme GA'sı (+ ortalama ± SS)."""
     groups = []
     for g in order:
         sel = [w for w in wells
                if w[groupby] == g and not w["excluded"]
                and (only is None or only(w))
-               and w[key] is not None and np.isfinite(w[key])]
-        v = np.array([w[key] for w in sel], float)
+               and at(w, key, ti) is not None and np.isfinite(at(w, key, ti))]
+        v = np.array([at(w, key, ti) for w in sel], float)
         if not v.size:
             continue
         lo, hi = C.boot_ci(v) if v.size >= 3 else (float(v.min()), float(v.max()))
@@ -120,8 +173,16 @@ def strip_series(wells: list[dict], key: str, groupby: str, order: list[str],
                        "values": [round(float(x), 5) for x in v],
                        "wells": [w["well"] for w in sel],
                        "median": round(float(np.median(v)), 5),
-                       "ci": [round(float(lo), 5), round(float(hi), 5)]})
-    return {"groups": groups}
+                       "ci": [round(float(lo), 5), round(float(hi), 5)],
+                       "mean": round(float(v.mean()), 5),
+                       "sd": round(float(v.std(ddof=1)), 5) if v.size > 1 else None})
+    return {**{"groups": groups}, "tests": []}
+
+
+def strip_tested(wells, key, ti, groupby, order, only=None) -> dict:
+    d = strip_series(wells, key, ti, groupby, order, only)
+    d["tests"] = pairwise(d)
+    return d
 
 
 def pairwise(strip: dict) -> list[dict]:
@@ -145,7 +206,7 @@ def pairwise(strip: dict) -> list[dict]:
     return rows
 
 
-def matched_tcell_effect(wells: list[dict], key: str) -> dict:
+def matched_tcell_effect(wells: list[dict], key: str, ti: int) -> dict:
     """±T hücresi etkisi, ko-kültür sabit tutularak.
 
     Ko-kültür hem ölümü hem T dağılımını bağımsız olarak etkiliyor; T'li ve
@@ -155,9 +216,9 @@ def matched_tcell_effect(wells: list[dict], key: str) -> dict:
     rows, ps = [], []
     for g in COCULTURE_ORDER:
         sel = [w for w in wells if w["coculture"] == g and not w["excluded"]
-               and w[key] is not None and np.isfinite(w[key])]
-        a = np.array([w[key] for w in sel if w["has_tcells"]], float)
-        b = np.array([w[key] for w in sel if not w["has_tcells"]], float)
+               and at(w, key, ti) is not None and np.isfinite(at(w, key, ti))]
+        a = np.array([at(w, key, ti) for w in sel if w["has_tcells"]], float)
+        b = np.array([at(w, key, ti) for w in sel if not w["has_tcells"]], float)
         if a.size < 2 or b.size < 2:
             continue
         p = C.mwu_p(a, b)
@@ -168,7 +229,9 @@ def matched_tcell_effect(wells: list[dict], key: str) -> dict:
                      "delta": round(float(C.cliffs_delta(a, b)), 3),
                      "p": None if not np.isfinite(p) else round(float(p), 5),
                      "values_t": [round(float(x), 5) for x in a],
-                     "values_ctrl": [round(float(x), 5) for x in b]})
+                     "values_ctrl": [round(float(x), 5) for x in b],
+                     "wells_t": [w["well"] for w in sel if w["has_tcells"]],
+                     "wells_ctrl": [w["well"] for w in sel if not w["has_tcells"]]})
         ps.append(p)
     if rows:
         for r, qq in zip(rows, C.bh_fdr(np.array(ps, float))):
@@ -184,11 +247,13 @@ def matched_tcell_effect(wells: list[dict], key: str) -> dict:
             "sign_p": None if sign_p is None else round(float(sign_p), 4)}
 
 
-def timecourse(wells: list[dict], key: str, groupby: str, order: list[str]) -> dict:
+def timecourse(wells: list[dict], key: str, groupby: str, order: list[str],
+               only=None) -> dict:
     """Grup başına medyan eğri + kuyu eğrileri."""
     out = []
     for g in order:
-        sel = [w for w in wells if w[groupby] == g and not w["excluded"]]
+        sel = [w for w in wells if w[groupby] == g and not w["excluded"]
+               and (only is None or only(w))]
         if not sel:
             continue
         M = np.array([w[key] for w in sel], float)
@@ -199,49 +264,89 @@ def timecourse(wells: list[dict], key: str, groupby: str, order: list[str]) -> d
     return {"groups": out}
 
 
-def build() -> dict:
-    wells = load_wells()
+def build(ti: int | None = None, wells: list[dict] | None = None,
+          T: list[dict] | None = None) -> dict:
+    """Bir zaman noktasındaki grup karşılaştırmaları (varsayılan: son nokta)."""
+    wells = wells if wells is not None else load_wells()
+    T = T if T is not None else times()
+    ti = len(T) - 1 if ti is None else ti
     t_only = lambda w: w["has_tcells"]                              # noqa: E731
+    no_t = lambda w: not w["has_tcells"]                            # noqa: E731
 
-    # Uzaklık ölçüsü yoğun kuyularda anlamını yitiriyor (yukarıdaki gerekçe),
-    # o yüzden bu figürde ek bir koşul var. Zenginleşme yoğunluk oranı olduğu
-    # için aynı sorundan etkilenmiyor ve tüm kuyularda kalıyor.
-    dist_ok = lambda w: w["has_tcells"] and w["terr_frac"] is not None \
-        and w["terr_frac"] <= CONFLUENT_MAX                            # noqa: E731
+    # "Dye" kolonundaki kuyulara ölü-hücre boyası verilmemiş: NIR sinyalleri
+    # 21 kuyuda da tam sıfır (gün 4 medyan 0,0, en yüksek 2e-5 mm²), oysa green
+    # ve orange arkaplanı öbür kuyular kadar. Ölü hücre karşılaştırmalarına
+    # girmeleri "T'siz kuyularda ölüm yok" gibi bir yanılsama üretir; dışarıda
+    # tutulur ve sayfada söylenir.
+    no_dye = [w for w in wells if w["compound"] != "Dye"]
 
-    enrich_coc = strip_series(wells, "t_enrich", "coculture", COCULTURE_ORDER, t_only)
-    enrich_cmp = strip_series(wells, "t_enrich", "compound", COMPOUND_ORDER, t_only)
-    dist_coc = strip_series(wells, "t_median_dist", "coculture", COCULTURE_ORDER, dist_ok)
-    growth = timecourse(wells, "organoid", "coculture", COCULTURE_ORDER)
+    def split(key, pool=None):
+        # aynı büyüklük, T hücresi alan ve almayan kuyularda ayrı ayrı
+        pool = wells if pool is None else pool
+        return {"t": strip_tested(pool, key, ti, "compound", COMPOUND_ORDER, t_only),
+                "no_t": strip_tested(pool, key, ti, "compound", COMPOUND_ORDER, no_t)}
 
     return {
         "calibration": calib.load(),
+        "t": {**T[ti], "index": ti, "day": round(T[ti]["hours"] / 24, 2)},
+        "times": T,
         "n_wells": len([w for w in wells if not w["excluded"]]),
         "n_excluded": len([w for w in wells if w["excluded"]]),
-        "confluence": confluence_confound(wells),
-        "enrich_coculture": {**enrich_coc, "tests": pairwise(enrich_coc)},
-        "enrich_compound": {**enrich_cmp, "tests": pairwise(enrich_cmp)},
-        "dist_coculture": {**dist_coc, "tests": pairwise(dist_coc)},
-        "growth": growth,
-        "dead_matched": matched_tcell_effect(wells, "dead"),
-        "tumour_matched": matched_tcell_effect(wells, "tumour_last"),
+        "catalogue": catalogue(wells),
+        # T hücreleri: nerede (katman) ve ne kadar
+        "tz_coculture": layer_profile(wells, "tcell_by_z", ti, "coculture",
+                                      COCULTURE_ORDER, t_only),
+        "tz_compound": layer_profile(wells, "tcell_by_z", ti, "compound",
+                                     COMPOUND_ORDER, t_only),
+        "tcells_coculture": strip_tested(wells, "tcells", ti, "coculture",
+                                         COCULTURE_ORDER, t_only),
+        "tcells_compound": strip_tested(wells, "tcells", ti, "compound",
+                                        COMPOUND_ORDER, t_only),
+        "tcell_time": timecourse(wells, "tcells", "coculture", COCULTURE_ORDER, t_only),
+        # tedavi rejimleri: bileşiğe göre, T'li ve T'siz kuyular yan yana
+        "dead_compound": split("dead", no_dye),
+        "tumour_compound": split("tumour"),
+        "growth_compound": split("growth"),
+        # organoid ayak izi zamanla
+        "growth": timecourse(wells, "organoid", "coculture", COCULTURE_ORDER),
+        # ±T etkisi, ko-kültür sabit
+        "dead_matched": matched_tcell_effect(no_dye, "dead", ti),
+        "tumour_matched": matched_tcell_effect(wells, "tumour", ti),
     }
+
+
+def build_all() -> list[dict]:
+    """Her zaman noktası için bir sayfa verisi (kuyular bir kez okunur)."""
+    wells, T = load_wells(), times()
+    return [build(ti, wells, T) for ti in range(len(T))]
+
+
+def write_pages(all_d: list[dict] | None = None) -> dict:
+    """Her zaman noktası için bir sayfa; son nokta ayrıca groups.html."""
+    all_d = all_d if all_d is not None else build_all()
+    SITE.mkdir(parents=True, exist_ok=True)
+    for d in all_d:
+        html = P.groups_page(d, FG.build_all(d))
+        (SITE / f"groups_t{d['t']['index']:02d}.html").write_text(html, encoding="utf-8")
+        if d["t"]["index"] == len(all_d) - 1:
+            (SITE / "groups.html").write_text(html, encoding="utf-8")
+    return all_d[-1]
 
 
 def main() -> None:
     if not any(CACHE.glob("*.json")):
         raise SystemExit("ölçüm yok — önce: python3 atlas/build.py --all")
-    d = build()
-    SITE.mkdir(parents=True, exist_ok=True)
-    figs = FG.build_all(d)
-    (SITE / "groups.html").write_text(P.groups_page(d, figs), encoding="utf-8")
-    print(f"[gruplar] {d['n_wells']} kuyu ({d['n_excluded']} QC dışı)  →  "
-          f"{SITE / 'groups.html'}")
-    e = d["enrich_coculture"]
-    print("\nT hücresi zenginleşmesi, ko-kültüre göre (gün 4, yalnız +T kuyular):")
+    d = write_pages()
+    print(f"[gruplar] {d['n_wells']} kuyu ({d['n_excluded']} QC dışı) · "
+          f"{len(d['times'])} zaman noktası  →  {SITE / 'groups.html'}")
+    e = d["tcells_coculture"]
+    print("\nT hücresi sinyali (≈ hücre), ko-kültüre göre (gün 4, yalnız +T kuyular):")
     for g in e["groups"]:
-        print(f"  {g['label']:<12s} n={g['n']:2d}  medyan {g['median']:.2f}×  "
-              f"GA [{g['ci'][0]:.2f}–{g['ci'][1]:.2f}]")
+        print(f"  {g['label']:<12s} n={g['n']:2d}  medyan {g['median']:.0f}  "
+              f"GA [{g['ci'][0]:.0f}–{g['ci'][1]:.0f}]")
+    print("\nT hücresi katman profili (medyan mm², ko-kültüre göre):")
+    for g in d["tz_coculture"]["groups"]:
+        print(f"  {g['label']:<12s} n={g['n']:2d}  tepe z{g['peak']:02d}")
     print("\nikili testler (BH düzeltmeli):")
     for t in e["tests"]:
         print(f"  {t['a']:<12s} vs {t['b']:<12s}  AUC {t['auc']:.2f}  "

@@ -35,8 +35,8 @@ python3 atlas/shoot.py B04.html --gif slice   # the animations in this README
 | file | what it shows |
 |---|---|
 | `site/index.html` | The 96-well plate, coloured by whichever measure you pick. Click a well to open it. |
-| `site/<well>.html` | That well in 3D, four figures, four tables, and a methods section explaining where every number comes from. |
-| `site/groups.html` | Comparisons across wells: seven figures and six statistics tables. These are the manuscript figures. |
+| `site/<well>.html` | That well in 3D, two figures, three tables, and a methods section explaining where every number comes from. |
+| `site/groups.html`, `site/groups_tNN.html` | Comparisons across wells at one imaging time — one page per timepoint (13), `groups.html` is the last. Twelve figures, each with a one-sentence reading, the wells behind every group, and a statistics table. These are the manuscript figures. |
 | `site/check/<well>.html` | **Evidence.** The raw plane on the left with the measured mask outlined, the same layer in 3D on the right, moving together through z. Plus an overlay mode that proves the reconstruction sits where the stain is. |
 
 ### The overlay check
@@ -59,14 +59,36 @@ The **layers** control decides what both sides show:
 | setting | photograph | reconstruction |
 |---|---|---|
 | this layer only | the single raw plane | only that layer lit |
-| this layer and everything below | maximum projection of planes 0…z | layers 0…z lit |
+| z00 → this layer | maximum projection of planes 0…z | layers 0…z lit |
+| this layer → z16 | maximum projection of planes z…16 | layers z…16 lit |
+| all layers | maximum projection of the whole stack | every layer lit |
 
 Both sides always show the same accumulation — comparing a single-plane photograph
 against a multi-layer slab would break the very thing the overlay is meant to
-demonstrate.
+demonstrate. The projections are built in the browser from the raw planes (a
+per-pixel maximum, which is what a maximum projection is), so nothing is embedded
+twice.
+
+**Link panels** (on by default) ties the two sides together: scroll to zoom, drag
+the photograph to pan, shift-drag the reconstruction to pan, and the other side
+follows to the same place at the same magnification. Orbiting keeps the linked
+point at the centre. Turn it off to move one side alone.
+
+**z00 on top** flips the ordinal z axis so the first plane is drawn uppermost —
+for stacks acquired from the apex of the dome downwards. XY is untouched, so the
+top view still matches the photograph. The choice is remembered across pages.
+
+The z slider is a full-width bar with a tick every layer; the mouse wheel over it
+steps one layer at a time, and the arrow keys do the same.
 
 Only XY placement is testable this way. The z axis carries no micron scale, so
 there is nothing to register it against.
+
+**+ what a more sensitive threshold would add** draws a second, paler outline
+around the pixels a threshold at 0.24× the plate gain would select and the
+measured one does not, and the table gives both counts. It is not used for any
+number; it exists so that "the threshold misses dim cells" can be checked on the
+pixels rather than argued about.
 
 What the sweep shows on real data: the bright cores of the stain are covered by
 voxels, and the diffuse halo around each core is not — that halo is the
@@ -93,8 +115,11 @@ Blender conventions:
 | double-click | reset |
 | `1` `3` `7` `9` | front, right, top, bottom |
 
-The toolbar above the scene slices the stack: build up from the bottom, peel down
-from the top, or show a single layer. The play button animates it. While slicing,
+Neither angle is clamped: the eye can go over the pole and keep turning, so no
+drag ever hits a wall.
+
+The toolbar above the scene slices the stack: from z00 up to a layer, from a layer
+to z16, or a single layer. The play button animates it. While slicing,
 a line underneath reports how much of each channel the visible slab actually
 contains, so the eye is not left to guess.
 
@@ -103,16 +128,23 @@ and masks are fixed plate-wide in the extraction pipeline, because a threshold
 that moves from well to well makes wells incomparable. What a number means is
 written in the methods section, not adjusted with a slider.
 
-## The four figures on a well page
+## The two figures on a well page
 
 Each answers one question:
 
 | figure | question |
 |---|---|
-| 1 — signal by depth | at which z layer does each population sit |
-| 2 — distance to the boundary | inside the organoid, at its rim, or outside |
-| 3 — depth × distance | both at once: which depth, and how far from the edge |
-| 4 — time course | how each quantity changed over four days |
+| 1 — signal by depth | at which z layer does each population sit, and how much of it |
+| 2 — time course | how each quantity changed over four days |
+
+Position is reported **by layer only**. Earlier versions also drew a distance-to-
+boundary profile, a depth × distance heat map, an inside/outside enrichment and a
+dome ring. All of them rested on the brightfield footprint standing in for the
+organoid, and the organoid's surface in z is not known — a cell over the footprint
+may be above, inside or below the dome. They were removed rather than caveated;
+the underlying counts (`bands`, `zband`, `dome`) are still in the cache but no
+page derives anything from them. What remains is defensible on its own: how much
+of each signal there is in each layer, and how that changes over time.
 
 Clicking a bar in Figure 1 does two things: it isolates that layer in the 3D
 scene, and it puts **the actual photograph of that layer** on the page. A claim
@@ -175,45 +207,40 @@ microns and one cell appears in several layers. Dividing a layer area by the sam
 scale would inflate the count severalfold. Per-layer cell equivalents therefore
 **apportion the well total** across layers in proportion to signal, and sum
 exactly to the well total. The pages and tables say so, and report the overcount
-factor for that frame. Distance bands do not have this problem — they are computed
-on the projected mask, so band areas sum exactly to the projected area and the
-scale applies directly.
+factor for that frame.
 
-## The dome, and why most wells do not have one
+## What the group page compares
 
-The dome is fitted to the **largest connected component** of the brightfield
-territory, not to the whole territory: scattered debris drags the centroid to the
-middle of the frame and the radius becomes a measure of the frame rather than of
-the well (1053 µm instead of 1689 µm in B04).
+One page per imaging time (13 of them; the selector at the top switches, and the
+exact capture time from `timepoints.csv` is printed). At the top a table says
+what was done to which well — co-culture, compound and dose, T cells or not, and
+the well IDs — so that "n = 7" is never a mystery. Then, at the chosen time:
 
-If the largest component holds less than half the territory, the well is
-multi-organoid and "distance from the centre" is not a defined quantity; no dome
-ring is drawn there. Measured: B02 97 % and B04 86 % single mass, but B01 16 % and
-A01 26 %. The primary frame is therefore not the dome but the **signed distance to
-the organoid boundary**, which works in both cases.
+| figure | question |
+|---|---|
+| 1–2 | T-cell signal **by layer**, by co-culture and by compound |
+| 3–4 | whole-well T-cell signal (≈ cells), by co-culture and by compound |
+| 5 | T-cell signal over time, by co-culture |
+| 6–8 | dead-cell signal, tumour signal and organoid growth by compound, wells with T cells beside wells without |
+| 9 | organoid footprint area over time, by co-culture |
+| 10–11 | the matched ±T-cell effect on dead-cell and tumour signal |
+| 12 | the calibration behind every ≈ cell number |
 
-## One confound worth knowing about
+Under every figure: a sentence saying what the numbers show (highest and lowest
+group, which differences survive correction), then each group with its n, its
+wells, median and mean ± SD, then the statistics table. The dye-only wells
+(columns 10–12) did not receive the dead-cell dye — their NIR signal is zero in
+all 21 — and are excluded from every dead-cell comparison.
 
-Median signed distance depends on how much of the field the territory covers. When
-the territory fills the frame, every point is inside it by construction and the
-measure reports confluence rather than infiltration. Measured across the 27
-T-cell wells, territory fraction and median distance correlate at Spearman
-ρ = −0.50 (p = 0.008), and four of the six PDA+MAC wells have a territory covering
-95 % of the field. Before this was caught, that group showed "deep infiltration"
-at a median of −252 µm and passed BH correction at q = 0.049. It was an artefact.
-
-Figure 3 on the group page now excludes wells whose territory covers more than
-70 % of the field, and states the correlation and the excluded wells in its
-caption. Enrichment (Figure 1) is unaffected — it is a density ratio and does not
-carry this dependence.
+Nothing about distance to the organoid or enrichment inside it: see above.
 
 ## Units
 
 | quantity | unit | what it rests on |
 |---|---|---|
-| enrichment, shares, ratios, AUC, Cliff's δ | dimensionless | **nothing** |
+| shares, ratios, AUC, Cliff's δ | dimensionless | **nothing** |
 | pixel and voxel counts | count | **nothing** |
-| area (mm², µm²), distance (µm) | µm-derived | 2.798 µm/px — from the instrument's field label, **not verified** |
+| area (mm², µm²) | µm-derived | 2.798 µm/px — from the instrument's field label, **not verified** |
 | ≈ T-cell number | cells | the calibration above |
 | signal volume | µm²·layer | × the z step gives µm³ |
 | depth | z layer index | the z step is in no file |
@@ -271,10 +298,11 @@ series is directly labelled and every figure has a table.
 Thresholds, the brightfield mask and the band edges are taken verbatim from
 `analysis/extract.py`, so the numbers here use the same definitions as the
 analyses in `analysis/out/`. `selftest.py --vs-analysis` checks this on every run:
-across all 1144 well × timepoint samples, area fraction, territory and enrichment
-must be identical. That check caught a real bug once — enrichment was being
-computed after the ratio had been rounded, which produced relative errors above
-60 % at small ratios.
+across all 1144 well × timepoint samples, area fraction and territory must be
+identical (the cached enrichment is compared too, although no page shows it any
+more). That check caught a real bug once — enrichment was being computed after
+the ratio had been rounded, which produced relative errors above 60 % at small
+ratios.
 
 The atlas does not replace those analyses. They do plate-wide comparison and
 statistics; the atlas opens one well in space and produces the figures in a form

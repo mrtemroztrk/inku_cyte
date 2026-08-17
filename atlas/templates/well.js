@@ -39,10 +39,10 @@
     $("#cut").disabled = !on;
     $("#playz").disabled = !on;
     $("#cutlabel").textContent = on
-      ? (m === "one" ? `layer ${zpad(cut)}`
-         : m === "up" ? `layers ${zpad(0)}–${zpad(cut)}`
-         : `layers ${zpad(cut)}–${zpad(NZ - 1)}`)
-      : `all ${NZ} layers`;
+      ? (m === "one" ? zpad(cut)
+         : m === "up" ? `${zpad(0)}–${zpad(cut)}`
+         : `${zpad(cut)}–${zpad(NZ - 1)}`)
+      : `all ${NZ}`;
     $("#cutshare").textContent = on ? layerShare(lo, hi) : "";
   }
 
@@ -62,6 +62,19 @@
     return "visible slab holds " + part.join(" · ");
   }
 
+  $("#cloud").addEventListener("change", e => scene.setCloud(e.target.value));
+
+  // z00 on top: the ordinal axis drawn the other way up, for stacks whose first
+  // plane is the apex of the dome. Remembered across pages (same key as the
+  // segmentation check), so it is chosen once, not per well.
+  const ZUP_KEY = "atlas.zup";
+  $("#zup").checked = localStorage.getItem(ZUP_KEY) === "1";
+  scene.setZUp($("#zup").checked);
+  $("#zup").addEventListener("change", e => {
+    localStorage.setItem(ZUP_KEY, e.target.checked ? "1" : "0");
+    scene.setZUp(e.target.checked);
+    figures(F[t]);                                    // Figure 1 follows the scene
+  });
   $("#slicemode").addEventListener("change", e => {
     sliceMode = e.target.value;
     if (sliceMode === "down") cut = 0;
@@ -97,72 +110,76 @@
     if (sliceMode !== "all") $("#cutshare").textContent = layerShare(
       sliceMode === "down" ? cut : 0, sliceMode === "up" ? cut : NZ - 1);
     const rec = await scene.load(j, f, f.grid);
-    if (t === j && rec) scene.show(rec);
+    if (t === j && rec) { scene.show(rec); scene.setCloud($("#cloud").value); }
   }
 
   // ---------------------------------------------------------------- readout
   function readout(f) {
-    const d = f.derived, o = f.totals.orange;
+    const d = f.derived;
     const set = (id, val, unit, sub) => {
       $(`#q_${id} .val`).innerHTML = val + (unit ? `<span class="u">${unit}</span>` : "");
       $(`#q_${id} .sub`).innerHTML = sub || "";
     };
     set("organoid", fmt(d.organoid_mm2, 2), "mm²",
       `${fmt(f.bf.terr_frac * 100, 0)} % of the imaged field`);
+    // Where along z the signal sits: its brightest layer and the narrowest run
+    // of layers holding half of it. Layer indices, not microns.
+    const where = k => d[`${k}_peak_z`] == null ? "no signal"
+      : `peak ${zpad(d[`${k}_peak_z`])} · half of it in ` +
+        (d[`${k}_half_z`][0] === d[`${k}_half_z`][1] ? zpad(d[`${k}_half_z`][0])
+         : `${zpad(d[`${k}_half_z`][0])}–${zpad(d[`${k}_half_z`][1])}`);
     set("tumour", fmt(d.tumour_mm2, 3), "mm²",
-      `volume ${fmt(d.tumour_vol_um2layer / 1e6, 2)} ×10⁶ µm²·layer`);
+      `volume ${fmt(d.tumour_vol_um2layer / 1e6, 2)} ×10⁶ µm²·layer · ${where("tumour")}`);
     set("tcell", fmt(d.tcell_mm2, 3), "mm²",
-      `derived: <b>≈ ${fmt(d.tcells, 0)} cells</b>` +
-      (o.frac_in_terr == null ? ""
-        : ` · ${fmt(o.frac_in_terr * 100, 0)} % inside the organoid territory`));
-    set("dead", fmt(d.dead_mm2, 4), "mm²",
-      f.totals.nir.frac_in_terr == null ? "no signal"
-        : `${fmt(f.totals.nir.frac_in_terr * 100, 0)} % inside the territory`);
-
-    const e = o.enrich_terr;
-    const verdict = e == null ? "not measurable"
-      : e < 0.5 ? "excluded from the organoid"
-      : e < 0.8 ? "weakly excluded"
-      : e <= 1.25 ? "close to uniform"
-      : e <= 2 ? "enriched" : "strongly enriched";
-    $("#q_enrich .val").innerHTML = (e == null ? "—" : fmt(e, 2)) +
-      '<span class="u">× uniform</span>';
-    $("#q_enrich .sub").textContent = verdict;
+      `derived: <b>≈ ${fmt(d.tcells, 0)} cells</b> · ${where("tcell")}`);
+    set("dead", fmt(d.dead_mm2, 4), "mm²", where("dead"));
   }
 
   // ---------------------------------------------------------------- figures
-  const LAB = D.band_labels;
   /* Clicking a layer does two things at once: isolates it in the reconstruction
      and puts the actual photograph of that layer on screen. A number about a
      layer should be checkable against the pixels it came from without leaving
      the page. */
-  function showLayer(z) {
-    sliceMode = "one"; cut = z;
-    $("#slicemode").value = "one"; $("#cut").value = z;
-    applySlice();
-    const box = $("#proof");
+  /* The proof panel. Clicking a depth bar or a point on the time course opens
+     the photograph the number was measured from, at that timepoint, with its own
+     layer slider — the claim and the pixels behind it on the same screen. */
+  let proofT = null;
+  function showProof(ti, z, moveScene) {
     const th = D.thumbs;
-    if (th && th.z[t] && th.z[t][z]) {
-      $("#proofimg").src = th.z[t][z];
-      const d = F[t].derived;
-      $("#proofcap").innerHTML =
-        `<b>Layer ${zpad(z)}</b>, day ${fmt(D.times[t].hours / 24, 2)} — the raw ` +
-        "plane with the measured mask outlined in each channel's colour. " +
-        `Tumour ${fmt(d.tumour_area_by_z_mm2[z], 4)} mm², T cells ` +
-        `${fmt(d.tcell_area_by_z_mm2[z], 4)} mm² (≈ ${fmt(d.tcells_by_z[z], 0)} ` +
-        `cells apportioned), dead ${fmt(d.dead_area_by_z_mm2[z], 5)} mm². ` +
-        '<a href="check/' + D.well + '.html">Open at full resolution →</a>';
-      box.hidden = false;
+    if (!th || !th.z[ti]) return;
+    proofT = ti;
+    const nz = th.z[ti].length;
+    $("#proofz").max = nz - 1;
+    $("#proofz").value = z;
+    $("#proofimg").src = th.z[ti][z];
+    $("#proofzlab").textContent = zpad(z);
+    const d = F[ti].derived;
+    $("#proofcap").innerHTML =
+      `<b>Layer ${zpad(z)}</b> · day ${fmt(D.times[ti].hours / 24, 2)} — the raw ` +
+      "plane with the measured mask outlined in each channel's colour. " +
+      `Tumour ${fmt(d.tumour_area_by_z_mm2[z], 4)} mm², T cells ` +
+      `${fmt(d.tcell_area_by_z_mm2[z], 4)} mm², dead ` +
+      `${fmt(d.dead_area_by_z_mm2[z], 5)} mm². ` +
+      '<a href="check/' + D.well + '.html">full resolution, channel by channel →</a>';
+    $("#proof").hidden = false;
+    if (moveScene) {
+      sliceMode = "one"; cut = z;
+      $("#slicemode").value = "one"; $("#cut").value = z;
+      applySlice();
+      $("#scene").scrollIntoView({ behavior: "smooth", block: "center" });
     }
-    $("#scene").scrollIntoView({ behavior: "smooth", block: "center" });
   }
+  function showLayer(z) { showProof(t, z, true); }
+  $("#proofz").addEventListener("input", e => {
+    if (proofT != null) showProof(proofT, +e.target.value, false);
+  });
   $("#proofclose").addEventListener("click", () => { $("#proof").hidden = true; });
 
   function figures(f) {
-    svgs.depth = FIG.depth($("#fig_depth"), f, T, CAL, showLayer);
-    svgs.bands = FIG.bands($("#fig_bands"), f, T, LAB);
-    svgs.zband = FIG.zband($("#fig_zband"), f, T, LAB);
-    svgs.time = FIG.timecourse($("#fig_time"), F, D.times, T, t, CAL);
+    svgs.depth = FIG.depth($("#fig_depth"), f, T, CAL, showLayer, $("#zup").checked);
+    svgs.time = FIG.timecourse($("#fig_time"), F, D.times, T, t, CAL,
+      ti => { showProof(ti, Math.min(8, (D.thumbs ? D.thumbs.z[ti].length : 9) - 1), false);
+              $("#proof").scrollIntoView({ behavior: "smooth", block: "center" }); });
     tables(f);
   }
 
@@ -175,23 +192,27 @@
         "derived estimates.",
       head: ["Quantity", "Value", "Unit", "Basis"],
       rows: [
-        ["Organoid territory (brightfield)", fmt(d.organoid_mm2, 3), "mm²", "measured"],
-        ["Tumour signal area", fmt(d.tumour_mm2, 4), "mm²", "measured"],
-        ["Tumour signal volume", fmt(d.tumour_vol_um2layer, 0), "µm²·layer", "measured"],
-        ["T-cell signal area", fmt(d.tcell_mm2, 4), "mm²", "measured"],
-        ["Dead-cell signal area", fmt(d.dead_mm2, 5), "mm²", "measured"],
-        ["T-cell fraction inside territory",
-         f.totals.orange.frac_in_terr == null ? "—" : fmt(f.totals.orange.frac_in_terr, 4),
-         "—", "measured"],
-        ["T-cell enrichment in territory",
-         f.totals.orange.enrich_terr == null ? "—" : fmt(f.totals.orange.enrich_terr, 3),
-         "× uniform", "measured"],
-        [{ html: "T cells, whole well" }, { html: "≈ " + fmt(d.tcells, 0) }, "cells",
+        [{ html: "Organoid territory (brightfield)", def: "organoid" },
+         fmt(d.organoid_mm2, 3), "mm²", "measured"],
+        [{ html: "Tumour signal area", def: "signal_area" },
+         fmt(d.tumour_mm2, 4), "mm²", "measured"],
+        [{ html: "Tumour signal volume", def: "volume" },
+         fmt(d.tumour_vol_um2layer, 0), "µm²·layer", "measured"],
+        [{ html: "T-cell signal area", def: "signal_area" },
+         fmt(d.tcell_mm2, 4), "mm²", "measured"],
+        [{ html: "Dead-cell signal area", def: "signal_area" },
+         fmt(d.dead_mm2, 5), "mm²", "measured"],
+        [{ html: "T cells, whole well", def: "tcells" },
+         { html: "≈ " + fmt(d.tcells, 0) }, "cells",
          { html: `derived: signal area ÷ ${fmt(um2, 1)} µm² per cell` }],
-        [{ html: "T cells inside territory" },
-         { html: d.tcells_in_terr == null ? "—" : "≈ " + fmt(d.tcells_in_terr, 0) },
-         "cells", { html: "derived" }],
-        ["Layer areas ÷ projected area",
+        [{ html: "T-cell signal, brightest layer", def: "zorder" },
+         d.tcell_peak_z == null ? "—" : zpad(d.tcell_peak_z), "layer", "measured"],
+        [{ html: "Tumour signal, brightest layer", def: "zorder" },
+         d.tumour_peak_z == null ? "—" : zpad(d.tumour_peak_z), "layer", "measured"],
+        [{ html: "Tumour cells", def: "tumour_no_cells" },
+         { html: "not derivable" }, "—",
+         { html: "the calibration was computed and rejected" }],
+        [{ html: "Layer areas ÷ projected area", def: "overcount" },
          d.z_overcount == null ? "—" : fmt(d.z_overcount, 2), "×",
          "measured — the out-of-focus spread factor"],
       ],
@@ -211,7 +232,8 @@
                  fmt(d.dead_area_by_z_mm2[z], 6)]);
     $("#tbl_depth").replaceChildren(FIG.table({
       caption: `<b>Table 2.</b> Signal per z layer, well ${D.well}, day ${day}.`,
-      head: ["Layer", "Tumour", "T cells", "T cells", "Dead cells"],
+      head: [{ html: "Layer", def: "zorder" }, "Tumour",
+             "T cells", { html: "T cells", def: "layer_cells" }, "Dead cells"],
       units: ["ordinal", "mm²", "mm²", "≈ cells", "mm²"],
       rows,
       note: "Layer areas are measured on each plane's own mask and sum to " +
@@ -224,35 +246,17 @@
       file: `${D.well}_t${String(t).padStart(2, "0")}_layers`,
     }));
 
-    $("#tbl_bands").replaceChildren(FIG.table({
-      caption: `<b>Table 3.</b> Signal by signed distance to the organoid ` +
-        `boundary, well ${D.well}, day ${day}.`,
-      head: ["Distance", "Band area", "Tumour", "T cells", "Dead cells", "T cells"],
-      units: ["µm", "mm²", "× uniform", "× uniform", "× uniform", "≈ cells"],
-      rows: LAB.map((l, i) => [l, fmt(f.band_area_mm2[i], 4),
-        f.bands.green.enrich[i] == null ? "—" : fmt(f.bands.green.enrich[i], 3),
-        f.bands.orange.enrich[i] == null ? "—" : fmt(f.bands.orange.enrich[i], 3),
-        f.bands.nir.enrich[i] == null ? "—" : fmt(f.bands.nir.enrich[i], 3),
-        "≈ " + fmt(d.tcells_by_band[i], 0)]),
-      note: "Negative distances are inside the brightfield organoid territory. " +
-        "Enrichment is band density divided by whole-field density, so 1.0 is " +
-        "the value a uniformly scattered population would give. Bands are " +
-        "computed on the projected mask, so band areas sum exactly to the " +
-        "projected signal area and the cell scale applies directly here.",
-      file: `${D.well}_t${String(t).padStart(2, "0")}_distance`,
-    }));
-
     $("#tbl_time").replaceChildren(FIG.table({
-      caption: `<b>Table 4.</b> Time course, well ${D.well}.`,
-      head: ["Day", "Hours", "Organoid", "Tumour", "T cells", "T cells",
-             "Dead cells", "T-cell enrichment"],
-      units: ["d", "h", "mm²", "mm²", "mm²", "≈ cells", "mm²", "× uniform"],
+      caption: `<b>Table 3.</b> Time course, well ${D.well}.`,
+      head: ["Day", "Hours", { html: "Organoid", def: "organoid" }, "Tumour",
+             "T cells", "T cells", "Dead cells",
+             { html: "T-cell peak layer", def: "zorder" }],
+      units: ["d", "h", "mm²", "mm²", "mm²", "≈ cells", "mm²", "layer"],
       rows: F.map((fr, i) => [fmt(D.times[i].hours / 24, 2), D.times[i].hours,
         fmt(fr.derived.organoid_mm2, 3), fmt(fr.derived.tumour_mm2, 4),
         fmt(fr.derived.tcell_mm2, 4), "≈ " + fmt(fr.derived.tcells, 0),
         fmt(fr.derived.dead_mm2, 5),
-        fr.totals.orange.enrich_terr == null ? "—"
-          : fmt(fr.totals.orange.enrich_terr, 3)]),
+        fr.derived.tcell_peak_z == null ? "—" : zpad(fr.derived.tcell_peak_z)]),
       file: `${D.well}_timecourse`,
     }));
   }
@@ -317,8 +321,22 @@
       $("#slicemode").value = mode; $("#cut").value = z;
       applySlice(); scene.draw();
     },
-    view(az, elev) { scene.az = az; scene.elev = elev; scene.changed(); scene.draw(); },
+    view(a, b) {
+      // Hem ön ayar adı hem (azimut, yükseklik) çifti kabul eder.
+      if (typeof a === "string") scene.view(a);
+      else { scene.az = a; scene.elev = b; scene.changed(); }
+      scene.draw();
+    },
     time(i) { return setFrame(i); },
+    channel(name, on) {
+      const c = document.querySelector(`.chip[data-ch="${name}"]`);
+      if (c) { c.setAttribute("aria-pressed", !!on); scene.toggle(name, !!on); }
+      scene.draw();
+    },
+    clickLayer(z) { showLayer(z); scene.draw(); },
+    cloud(kind) { $("#cloud").value = kind; scene.setCloud(kind); scene.draw(); },
+    zup(v) { $("#zup").checked = !!v; scene.setZUp(!!v); figures(F[t]); scene.draw(); },
+    scroll(y) { window.scrollTo(0, y); },
   };
 
   // -------------------------------------------------------------- start-up
