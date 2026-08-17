@@ -1,0 +1,340 @@
+/* Atlas — bilimsel sunum dili.
+   Kural: hiçbir şey yer değiştirmez. Her figürün yüksekliği sabit, her sayı
+   tabular-nums, her SVG viewBox'lı. Zaman kaydırıcısı oynatılırken sayfanın
+   akışı kıpırdamaz — kayan figür okunamaz figürdür. */
+
+:root {
+  --surface: #fcfcfb;
+  --scene: #0e1013;
+  --ink: #0b0b0b;
+  --ink2: #52514e;
+  --muted: #8a8983;
+  --rule: #e6e5e1;
+  --rule2: #d3d2cd;
+  --green: #1baf7a;
+  --orange: #eb6834;
+  --nir: #4a3aa7;
+  --terr: #b8b7b2;
+  --maxw: 1180px;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 28px 96px; }
+
+a { color: inherit; }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+/* ------------------------------------------------------------------ başlık */
+header.top {
+  border-bottom: 1px solid var(--rule2);
+  margin-bottom: 26px;
+  padding: 22px 0 14px;
+  display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+}
+header.top .well {
+  font-size: 27px; font-weight: 600; letter-spacing: -.015em; line-height: 1;
+}
+header.top .cond { color: var(--ink2); font-size: 14px; }
+header.top .cond b { font-weight: 600; color: var(--ink); }
+header.top .spacer { margin-left: auto; }
+header.top nav { font-size: 13px; color: var(--ink2); display: flex; gap: 14px; }
+header.top nav a { text-decoration: none; border-bottom: 1px solid var(--rule2); }
+header.top nav a:hover { border-color: var(--ink2); }
+
+.flag {
+  display: inline-block; padding: 1px 7px; border-radius: 2px; font-size: 11.5px;
+  border: 1px solid var(--rule2); color: var(--ink2); background: #fff;
+}
+.flag.warn { border-color: #eda100; color: #7a5400; background: #fffaf0; }
+
+/* -------------------------------------------------------------- bölüm başı */
+section { margin: 0 0 44px; }
+h2.sec {
+  font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 4px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--rule);
+}
+p.lead { margin: 10px 0 18px; color: var(--ink2); max-width: 78ch; font-size: 13.5px; }
+
+/* ------------------------------------------------------------------ 3B kat */
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) 276px; gap: 24px; align-items: start; }
+
+.scene {
+  position: relative; background: var(--scene); border-radius: 3px;
+  aspect-ratio: 16 / 10; overflow: hidden; cursor: grab;
+  touch-action: none; outline: none;
+}
+.scene.drag { cursor: grabbing; }
+.scene.pan { cursor: move; }
+.scene canvas, .scene svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.scene svg { pointer-events: none; }
+.scene .hintbar {
+  position: absolute; left: 12px; bottom: 10px; color: #6d7686; font-size: 11px;
+  pointer-events: none; letter-spacing: .01em;
+}
+.scene .viewlabel {
+  position: absolute; right: 12px; bottom: 10px; color: #6d7686; font-size: 11px;
+  pointer-events: none; font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+
+/* sahne araç çubuğu — kamera ve dilimleme; hiçbiri ölçümü değiştirmez */
+.scenebar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 9px; font-size: 12.5px; color: var(--ink2);
+}
+.seg { display: inline-flex; border: 1px solid var(--rule2); border-radius: 2px;
+       overflow: hidden; }
+.seg button {
+  font: inherit; font-size: 12px; border: 0; background: #fff; color: var(--ink2);
+  padding: 3px 10px; cursor: pointer;
+}
+.seg button + button { border-left: 1px solid var(--rule2); }
+.seg button:hover { background: #f2f1ee; color: var(--ink); }
+.sel { display: inline-flex; align-items: center; gap: 6px; }
+.sel select {
+  font: inherit; font-size: 12.5px; color: var(--ink); background: #fff;
+  border: 1px solid var(--rule2); border-radius: 2px; padding: 2px 6px;
+}
+input.cut { width: 160px; accent-color: #2a78d6; }
+input.cut:disabled { opacity: .4; }
+.cutlabel { font-size: 12px; color: var(--muted); min-width: 122px;
+            font-variant-numeric: tabular-nums; }
+.slabnote { margin: 7px 0 0; font-size: 11.5px; color: var(--muted); min-height: 17px; }
+
+/* denetimler: üç şey var, üçü de gerekli */
+.ctl { margin-top: 12px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.ctl .time { display: flex; align-items: center; gap: 11px; flex: 1 1 340px; min-width: 260px; }
+.ctl input[type=range] { flex: 1; min-width: 0; accent-color: #2a78d6; }
+.ctl .tlabel { font-size: 13px; color: var(--ink2); white-space: nowrap; min-width: 132px; }
+.ctl .tlabel b { color: var(--ink); font-weight: 600; }
+
+.chips { display: flex; gap: 7px; flex-wrap: wrap; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px;
+  border: 1px solid var(--rule2); background: #fff; border-radius: 2px;
+  padding: 3px 9px 3px 7px; cursor: pointer; color: var(--ink2); user-select: none;
+}
+.chip .sw { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.chip[aria-pressed="false"] { opacity: .42; }
+.chip:hover { border-color: var(--muted); }
+
+button.play {
+  border: 1px solid var(--rule2); background: #fff; border-radius: 2px;
+  width: 28px; height: 24px; cursor: pointer; color: var(--ink2); font-size: 11px;
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+}
+button.play:hover { border-color: var(--muted); }
+
+/* --------------------------------------------------------------- sayı kutu */
+.readout { border-top: 2px solid var(--ink); padding-top: 10px; }
+.readout h3 {
+  font-size: 11.5px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 12px;
+}
+.q { margin-bottom: 15px; }
+.q .lbl {
+  font-size: 12px; color: var(--ink2); display: flex; align-items: center; gap: 6px;
+  margin-bottom: 1px;
+}
+.q .sw { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.q .val { font-size: 21px; font-weight: 600; letter-spacing: -.02em; line-height: 1.15; }
+.q .val .u { font-size: 12.5px; font-weight: 400; color: var(--ink2); margin-left: 3px;
+             letter-spacing: 0; }
+.q .sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.q.approx .val::before { content: "≈ "; color: var(--ink2); font-weight: 400; }
+
+.readout .note {
+  border-top: 1px solid var(--rule); padding-top: 9px; margin-top: 4px;
+  font-size: 11.5px; color: var(--muted); line-height: 1.45;
+}
+
+/* ------------------------------------------------------------------ figür */
+.figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px 28px; }
+figure { margin: 0; min-width: 0; }
+figure.wide { grid-column: 1 / -1; }
+
+figcaption {
+  margin-top: 10px; font-size: 12px; color: var(--ink2); line-height: 1.55;
+  max-width: 96ch;
+}
+
+/* Her figür tek bir soruyu yanıtlıyor; soru başlıkla figür arasında durur. */
+.figq {
+  margin: 0 0 10px; font-size: 12.5px; color: var(--ink); font-style: italic;
+  max-width: 90ch;
+}
+.fignum {
+  font-style: normal; font-weight: 600; color: var(--muted); margin-right: 7px;
+  font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase;
+}
+
+.fighead { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+.fighead h3 { margin: 0; font-size: 13.5px; font-weight: 600; letter-spacing: -.005em; }
+.tblblock { margin-top: 26px; }
+.fighead .tools { margin-left: auto; display: flex; gap: 9px; }
+.fighead .tools button {
+  border: 0; background: none; padding: 0; cursor: pointer; font: inherit;
+  font-size: 11.5px; color: var(--muted); border-bottom: 1px solid var(--rule2);
+}
+.fighead .tools button:hover { color: var(--ink2); border-color: var(--ink2); }
+
+.plot { width: 100%; display: block; }
+.plot text { font-family: inherit; }
+
+/* Tablo görünümü. Renk tek başına taşıyıcı olmasın diye her figürde var; ayrıca
+   dergi tablosu biçiminde: üstte başlık, başlığın altında birim satırı, altta
+   dipnot. Yatay taşma tablonun kendi kutusunda kalır, sayfa yana kaymaz. */
+.tbl { display: none; margin-top: 12px; }
+.tbl.on { display: block; }
+.tbl > div { overflow-x: auto; }
+table.data {
+  border-collapse: collapse; font-size: 11.5px; white-space: nowrap;
+  border-top: 1.6px solid var(--ink); border-bottom: 1.6px solid var(--ink);
+  margin-top: 6px; min-width: 100%;
+}
+table.data caption {
+  caption-side: top; text-align: left; font-size: 12px; color: var(--ink2);
+  padding-bottom: 7px; white-space: normal; line-height: 1.5; max-width: 96ch;
+}
+table.data th, table.data td { padding: 4px 14px 4px 0; text-align: right; }
+table.data th:first-child, table.data td:first-child { text-align: left; padding-left: 0; }
+table.data thead th {
+  color: var(--ink); font-weight: 600; border-bottom: 1px solid var(--rule2);
+}
+table.data thead tr.units th {
+  font-weight: 400; color: var(--muted); font-size: 10.5px; padding-top: 0;
+  border-bottom: 1px solid var(--ink2);
+}
+table.data tbody tr + tr td { border-top: 1px solid var(--rule); }
+table.data tbody tr:hover td { background: #f4f3f0; }
+p.tnote {
+  margin: 8px 0 0; font-size: 11px; color: var(--muted); line-height: 1.55;
+  max-width: 96ch; white-space: normal;
+}
+button.csv {
+  margin-top: 9px; border: 0; background: none; padding: 0; cursor: pointer;
+  font: inherit; font-size: 11.5px; color: var(--muted);
+  border-bottom: 1px solid var(--rule2);
+}
+button.csv:hover { color: var(--ink2); border-color: var(--ink2); }
+.chip.out { border-style: dashed; }
+
+/* ------------------------------------------------------------------ yöntem */
+details.method { border-top: 1px solid var(--rule2); padding-top: 14px; }
+details.method > summary {
+  cursor: pointer; font-size: 12px; font-weight: 600; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--muted); list-style: none;
+}
+details.method > summary::-webkit-details-marker { display: none; }
+details.method > summary::before { content: "▸ "; }
+details.method[open] > summary::before { content: "▾ "; }
+details.method .body {
+  margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px 34px; font-size: 12.5px; color: var(--ink2); line-height: 1.6;
+}
+details.method h4 { margin: 0 0 5px; font-size: 12.5px; color: var(--ink); font-weight: 600; }
+details.method p { margin: 0 0 9px; }
+details.method code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; }
+
+/* ------------------------------------------------------------------- plaka */
+.plate { display: grid; grid-template-columns: 22px repeat(12, minmax(0, 1fr)); gap: 3px; }
+.plate .hd { font-size: 11px; color: var(--muted); text-align: center; line-height: 20px; }
+.plate .rw { font-size: 11px; color: var(--muted); text-align: center; }
+.wellbox {
+  aspect-ratio: 1; border-radius: 2px; position: relative; display: block;
+  text-decoration: none; border: 1px solid transparent; min-width: 0;
+}
+.wellbox:hover { outline: 2px solid var(--ink); outline-offset: 1px; z-index: 2; }
+.wellbox.na { background: repeating-linear-gradient(45deg, #f2f1ee 0 4px, #fff 4px 8px); }
+.wellbox.ex::after {
+  content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(45deg, rgba(0,0,0,.28) 0 2px, transparent 2px 5px);
+}
+.wellbox .tc {
+  position: absolute; right: 2px; top: 2px; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--ink); opacity: .55;
+}
+.platebar { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+.platebar label { font-size: 12.5px; color: var(--ink2); }
+.platebar select {
+  font: inherit; font-size: 13px; color: var(--ink); background: #fff;
+  border: 1px solid var(--rule2); border-radius: 2px; padding: 3px 7px;
+}
+.scalestrip { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); }
+.scalestrip .bar { width: 108px; height: 9px; border-radius: 1px; }
+
+#tip {
+  position: fixed; pointer-events: none; z-index: 9; background: #fff;
+  border: 1px solid var(--rule2); border-radius: 2px; padding: 7px 10px;
+  font-size: 12px; line-height: 1.5; box-shadow: 0 2px 10px rgba(0,0,0,.09);
+  max-width: 260px;
+}
+#tip .k { color: var(--muted); }
+#tip b { font-weight: 600; }
+
+@media (max-width: 940px) {
+  .stage { grid-template-columns: minmax(0, 1fr); }
+  .figs, details.method .body { grid-template-columns: minmax(0, 1fr); }
+  .wrap { padding: 0 18px 72px; }
+}
+
+@media print {
+  .ctl, .fighead .tools, header.top nav { display: none; }
+  .wrap { max-width: none; }
+  figure, section { break-inside: avoid; }
+}
+
+/* ------------------------------------------- segmentasyon kanıt sayfası */
+.checkbar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-bottom: 14px; font-size: 12.5px; color: var(--ink2);
+}
+.chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.chk input { accent-color: #2a78d6; }
+
+.checkgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.checkgrid figure { margin: 0; min-width: 0; }
+.imgbox {
+  background: var(--scene); border-radius: 3px; overflow: hidden;
+  aspect-ratio: 520 / 704; display: flex; align-items: center; justify-content: center;
+}
+.imgbox img { width: 100%; height: 100%; object-fit: contain; display: block;
+              image-rendering: auto; }
+.checkgrid .scene { aspect-ratio: 520 / 704; }
+
+@media (max-width: 940px) {
+  .checkgrid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Kanıt paneli: bir katmana tıklanınca o katmanın gerçek fotoğrafı. Sayfa
+   akışını itmemesi için sabit yükseklikte ve kapatılabilir. */
+.proof {
+  margin-top: 12px; display: grid; grid-template-columns: 176px minmax(0, 1fr);
+  gap: 14px; align-items: start; border: 1px solid var(--rule2);
+  border-left: 3px solid var(--ink); padding: 12px 14px; position: relative;
+  background: #fff;
+}
+.proof img {
+  width: 176px; display: block; background: var(--scene); border-radius: 2px;
+}
+.proof p { margin: 0; font-size: 11.5px; color: var(--ink2); line-height: 1.55; }
+.proof a { color: #2a78d6; }
+.proofclose {
+  position: absolute; right: 8px; top: 6px; border: 0; background: none;
+  font-size: 16px; line-height: 1; color: var(--muted); cursor: pointer; padding: 2px 4px;
+}
+.proofclose:hover { color: var(--ink); }

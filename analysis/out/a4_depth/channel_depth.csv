@@ -1,0 +1,4 @@
+channel,mean_z,sd_z,top3_share,peak_layer
+green,7.64,3.02,0.408,6
+orange,5.17,3.36,0.6595,3
+nir,6.625,2.59,0.6054999999999999,5

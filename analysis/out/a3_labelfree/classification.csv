@@ -1,0 +1,4 @@
+target,n_pos,n_neg,auc_bf_only,auc_bf_plus_fluor,best_single,best_single_auc
+makrofaj,18,18,0.7438271604938271,0.8950617283950617,orange_area_frac,0.06790123456790123
+T hücresi,14,18,0.8849206349206349,1.0,orange_area_frac,1.0
+CAF,9,9,1.0,1.0,bf_terr_frac,1.0

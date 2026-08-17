@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>inc_tests — T-cell infiltration viewer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header id="topbar">
+  <div class="brand">
+    <strong>inc_tests</strong>
+    <span class="muted">T-cell infiltration · Incucyte</span>
+  </div>
+
+  <div class="stamp">
+    <span id="stampWell">—</span>
+    <span class="sep">·</span>
+    <span id="stampTime">—</span>
+    <span class="sep">·</span>
+    <span id="stampZ">—</span>
+  </div>
+
+  <div class="topactions">
+    <div class="seg" id="modeSeg">
+      <button data-mode="2d" class="on">2B</button>
+      <button data-mode="3d">3B / derinlik</button>
+    </div>
+    <div class="seg" id="layoutSeg">
+      <button data-panels="1" class="on">1</button>
+      <button data-panels="2">2</button>
+      <button data-panels="4">4</button>
+    </div>
+    <button id="btnExtra" class="ghost" hidden>VID119</button>
+    <button id="btnReset" class="ghost" title="Görünümü sıfırla (R)">⤢ sıfırla</button>
+    <button id="btnHelp" class="ghost" title="Kısayollar (?)">?</button>
+  </div>
+</header>
+
+<main id="layout">
+  <aside id="sidebar">
+
+    <section class="card">
+      <div class="cardhead">
+        <h2>Plaka</h2>
+        <select id="plateColor" class="mini" title="Kuyu renklendirmesi">
+          <option value="coculture">ko-kültür</option>
+          <option value="compound">bileşik</option>
+          <option value="t_cells">T hücresi</option>
+        </select>
+      </div>
+      <div id="plate"></div>
+      <div id="plateLegend" class="legend"></div>
+      <div class="hint">tıkla: aktif panele ata · shift+tıkla: sonraki panel</div>
+    </section>
+
+    <section class="card">
+      <div class="cardhead"><h2>Kuyu bilgisi</h2></div>
+      <table id="wellInfo" class="kv"></table>
+    </section>
+
+    <section class="card">
+      <div class="cardhead">
+        <h2>Kanallar</h2>
+        <button id="btnResetDisplay" class="mini ghost"
+                title="Varsayılan görüntüleme ayarlarına dön">sıfırla</button>
+      </div>
+      <div id="channels"></div>
+    </section>
+
+    <section class="card">
+      <div class="cardhead">
+        <h2>Gelişmiş</h2>
+        <button id="btnAdvanced" class="mini ghost" aria-expanded="false">göster</button>
+      </div>
+      <div id="advanced" hidden>
+        <div class="row">
+          <label for="gamma">gama</label>
+          <input type="range" id="gamma" min="0.3" max="3" step="0.05" value="1">
+          <output id="gammaOut">1.00</output>
+        </div>
+        <div class="row">
+          <label for="umpx">µm/px</label>
+          <input type="number" id="umpx" step="0.001" min="0.001" class="num">
+          <span class="hint inline">Incucyte ölçek yazısından: 2,798</span>
+        </div>
+        <div class="row">
+          <label for="zstep">z adımı</label>
+          <input type="number" id="zstep" step="0.5" min="0.5" class="num">
+          <span class="hint inline">µm — <b>dosyalarda yok</b>, tarama
+            protokolünden girin (3B ölçeği buna bağlı)</span>
+        </div>
+        <div class="row">
+          <label class="chk"><input type="checkbox" id="showScale" checked> ölçek çubuğu</label>
+          <label class="chk"><input type="checkbox" id="showProbe" checked> piksel değeri</label>
+        </div>
+        <div class="hint">Kanal kartlarında ölçek modu, min/max ve opaklık
+          denetimleri de burada açılır.</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="cardhead">
+        <h2>Zaman serisi</h2>
+        <select id="seriesMetric" class="mini">
+          <option value="mean">ortalama</option>
+          <option value="p_high">p99</option>
+          <option value="area_frac">sinyal alanı</option>
+        </select>
+      </div>
+      <div id="seriesBox">
+        <button id="btnSeries" class="wide">bu kuyuyu ölç</button>
+        <div class="hint">z-yığınları taranır; ilk ölçüm yavaş, sonra önbellekten.</div>
+      </div>
+    </section>
+
+    <section class="card collapsed" id="statsCard">
+      <div class="cardhead"><h2>Durum</h2></div>
+      <div id="statsBox" class="hint mono"></div>
+    </section>
+  </aside>
+
+  <section id="stage">
+    <div id="panels" class="panels p1"></div>
+
+    <div id="stage3d" hidden>
+      <div class="v3dbar">
+        <div class="seg" id="view3dSeg">
+          <button data-view="dome" class="on" title="Dome sınırı ve içinde/dışında kalanlar">dome</button>
+          <button data-view="depth" title="Renk = sinyalin geldiği katman">derinlik haritası</button>
+          <button data-view="proj" title="Döndürülebilir izdüşüm">3B izdüşüm</button>
+          <button data-view="ortho" title="Dikey kesit (XZ / YZ)">kesit</button>
+        </div>
+        <select id="depthCh" class="mini" title="Derinlik haritası kanalı"></select>
+        <label class="chk v3d-proj" hidden>
+          eğim <input type="range" id="el3d" min="0" max="88" step="1" value="60">
+          <span id="el3dOut" class="mono">60°</span>
+        </label>
+        <label class="chk v3d-proj" hidden>
+          dönüş <input type="range" id="az3d" min="-90" max="90" step="1" value="0">
+          <span id="az3dOut" class="mono">0°</span>
+        </label>
+        <label class="chk v3d-proj" hidden title="Derinliği görsel olarak abartır — gerçek geometri değil">
+          z abartı <input type="range" id="zex3d" min="1" max="6" step="0.5" value="1">
+          <span id="zex3dOut" class="mono">×1</span>
+        </label>
+        <label class="chk v3d-proj" hidden>
+          <input type="checkbox" id="crop3d"> sferoide kırp
+        </label>
+        <label class="chk v3d-ortho" hidden>
+          <input type="checkbox" id="orthoYZ"> YZ (dikey kesit)
+        </label>
+        <span class="v3dhint hint" id="v3dhint"></span>
+      </div>
+
+      <div id="v3dbody">
+        <div id="v3dview">
+          <img id="v3dimg" alt="">
+          <div id="v3dspin" class="spin"></div>
+          <div id="depthLegend" class="dlegend"></div>
+        </div>
+        <div id="v3dprofile">
+          <div id="domeBox">
+            <div class="cardhead"><h2>Dome içinde ne var</h2></div>
+            <div id="domeSummary"></div>
+            <div id="domeChart"></div>
+            <div id="domeHint" class="hint"></div>
+          </div>
+          <div id="zBox">
+            <div class="cardhead"><h2>Katman dağılımı</h2></div>
+            <div id="zchart"></div>
+            <div id="zsummary" class="hint"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="timeline">
+      <div class="tlrow">
+        <button id="btnPlay" class="play" title="Oynat/durdur (boşluk)">▶</button>
+        <input type="range" id="tSlider" min="0" max="0" step="1" value="0">
+        <div class="tlmeta">
+          <span id="tLabel" class="mono">t00</span>
+          <span id="tClock" class="muted mono">—</span>
+        </div>
+        <label class="chk" title="Kare hızı">
+          <input type="number" id="fps" class="num tiny" min="1" max="20" step="1" value="4"> fps
+        </label>
+      </div>
+
+      <div class="tlrow">
+        <span class="zlabel">z</span>
+        <input type="range" id="zSlider" min="0" max="0" step="1" value="0">
+        <div class="tlmeta">
+          <span id="zLabel" class="mono">z00</span>
+        </div>
+        <label class="chk" title="Maksimum yoğunluk projeksiyonu — 17 düzlemin tamamı (M)">
+          <input type="checkbox" id="mip" checked> MIP
+        </label>
+      </div>
+
+      <div id="ticks" class="ticks"></div>
+    </div>
+  </section>
+</main>
+
+<div id="tooltip" class="tooltip" hidden></div>
+
+<dialog id="help">
+  <h3>Kısayollar</h3>
+  <table class="kv">
+    <tr><td>← →</td><td>zaman noktası</td></tr>
+    <tr><td>↑ ↓</td><td>z düzlemi</td></tr>
+    <tr><td>boşluk</td><td>oynat / durdur</td></tr>
+    <tr><td>1 – 4</td><td>kanal aç/kapa</td></tr>
+    <tr><td>M</td><td>MIP</td></tr>
+    <tr><td>R</td><td>zoom/pan sıfırla</td></tr>
+    <tr><td>tekerlek</td><td>yakınlaştır</td></tr>
+    <tr><td>sürükle</td><td>kaydır</td></tr>
+    <tr><td>shift+tıkla (plaka)</td><td>kuyuyu sonraki panele ekle</td></tr>
+  </table>
+  <p class="hint">Kanal ayarları tüm panellerde ortaktır — karşılaştırmalar aynı
+  kontrast aralığında yapılır.</p>
+  <form method="dialog"><button class="wide">kapat</button></form>
+</dialog>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="app.js" type="module"></script>
+</body>
+</html>

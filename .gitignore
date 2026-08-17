@@ -1,0 +1,25 @@
+# Ham veri — 44 GB, mikroskoptan geldiği gibi. Depoya girmez; nasıl elde edildiği
+# data/inc_tests/README.md'de yazıyor.
+/data/
+
+# Sanal ortam
+/.venv/
+
+# Önbellekler — hepsi kaynaktan yeniden üretilebilir, hiçbiri girdi değil.
+/atlas/cache/
+/viewer/cache/
+__pycache__/
+*.pyc
+
+# Üretilen site: 88 kuyu sayfası + 88 kanıt sayfası, ~280 MB. Kaynağı burada,
+# `python3 atlas/build.py --all` ile yeniden üretiliyor.
+/atlas/site/
+
+# Görüntü dışa aktarımları
+/export/
+
+# Toplu HTML rapor — a1..a6 çıktılarından üretiliyor (analysis/report.py)
+/analysis/out/rapor.html
+
+# Yerel araç izinleri — makineye özel, paylaşılmaz
+/.claude/settings.local.json
