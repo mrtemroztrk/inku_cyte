@@ -322,6 +322,7 @@ details.method code { font-family: ui-monospace, Menlo, Consolas, monospace; fon
 
 /* Kanıt paneli: bir katmana tıklanınca o katmanın gerçek fotoğrafı. Sayfa
    akışını itmemesi için sabit yükseklikte ve kapatılabilir. */
+.proof[hidden] { display: none; }   /* display:grid, [hidden]'ı ezerdi */
 .proof {
   margin-top: 12px; display: grid; grid-template-columns: 176px minmax(0, 1fr);
   gap: 14px; align-items: start; border: 1px solid var(--rule2);
@@ -338,3 +339,28 @@ details.method code { font-family: ui-monospace, Menlo, Consolas, monospace; fon
   font-size: 16px; line-height: 1; color: var(--muted); cursor: pointer; padding: 2px 4px;
 }
 .proofclose:hover { color: var(--ink); }
+
+/* Sunucuda çizilen (matplotlib) yayın figürleri: gerçek boyutunda, gerilmeden. */
+img.pubfig {
+  display: block; width: 100%; max-width: 880px; height: auto;
+  margin: 2px 0 0;
+}
+.fighead .tools a.dl {
+  font-size: 11.5px; color: var(--muted); text-decoration: none;
+  border-bottom: 1px solid var(--rule2);
+}
+.fighead .tools a.dl:hover { color: var(--ink2); border-color: var(--ink2); }
+
+/* Bindirme kipi: fotoğraf sahnenin üstünde, ekran (screen) harmanıyla — iki
+   parlak nokta üst üste gelince toplanır, kayma varsa iki ayrı nokta görünür. */
+.checkgrid.overlay { grid-template-columns: minmax(0, 1fr); }
+.checkgrid.overlay .scene { max-width: 620px; margin: 0 auto; }
+.scene > img#ovl {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: fill; mix-blend-mode: screen; pointer-events: none;
+}
+#mixwrap[hidden] { display: none; }
+#mixwrap input.cut { width: 120px; }
+.scene > img#ovl { transform-origin: 50% 50%; will-change: transform; }
+/* Sunumda projeksiyondan okunabilsin diye bindirme kipi daha büyük. */
+.checkgrid.overlay .scene { max-width: 760px; }

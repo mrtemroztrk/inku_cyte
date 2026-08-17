@@ -1,42 +1,77 @@
-# inc_t_cell — T hücresi infiltrasyonu, Incucyte zaman serisi
+# inc_t_cell — T-cell infiltration into PDA organoids, Incucyte time-lapse
 
-PDA 30364 tümör organoidleri, CAF ve/veya makrofajla birlikte kültüre edilmiş,
-T hücresi eklenmiş ya da eklenmemiş, KRAS ve SRC inhibitörleriyle muamele
-edilmiş. Incucyte'ta dört gün boyunca görüntülendi.
+PDA 30364 tumour organoids, co-cultured with CAFs and/or macrophages, with or
+without T cells, under KRAS and SRC inhibitors. Imaged on an Incucyte for four
+days.
 
-Bu depo o görüntülerden sayı çıkarıyor ve o sayıları bakılabilir hâle getiriyor.
+This repository turns those images into numbers, and the numbers into something
+you can look at.
+
+![building the stack layer by layer](docs/slice.gif)
+
+*One well, rebuilt one z layer at a time. Every dot is a 5.6 µm voxel above
+threshold: green tumour, orange T cells, violet dead cells; the grey plate at the
+bottom is the organoid footprint measured in brightfield. The dashed ring is the
+radius containing 90 % of the organoid mass.*
+
+## What the pipeline does to a photograph
+
+![raw plane and reconstruction, stepping through z](docs/zscan.gif)
+
+*Left: the raw fluorescence plane with the measured mask outlined in each
+channel's colour. Right: the same layer in the reconstruction. Moving through z
+moves both, so any claim about a layer can be checked against the pixels it came
+from. This page exists for one reason — a threshold is a decision, and a decision
+should be visible.*
+
+## Is the reconstruction actually in the right place?
+
+![sweeping the photograph over the reconstruction](docs/overlay.gif)
+
+*The same layer, with the camera locked straight down and the projection scaled so
+that one voxel covers exactly the pixels it was measured from, while the raw
+photograph fades in and out on top. The stain is shown **without** the mask
+outline on purpose: the outline is drawn from the same mask as the voxels, so
+comparing the two would be circular. What this tests is whether the voxels land on
+the stain itself — and they fade in place rather than sliding across it, at every
+layer. Only XY placement is testable this way; the z axis carries no micron scale
+because the z step is recorded in no file.*
+
+![rotating the reconstruction](docs/orbit.gif)
+
+## Scope of the data
 
 | | |
 |---|---|
-| Plaka | 96 kuyu; **88'i görüntülendi** (sütun 9 görüntülenmedi) |
-| Zaman | 13 nokta, ~8 saat aralık, toplam 96 saat |
-| Kanallar | brightfield (1 düzlem), green, orange, NIR (her biri 17 z düzlemi) |
-| Kanal → içerik | green = tümör, orange = T hücresi, NIR = ölü hücre |
-| Görüntü | 1040 × 1408 px, 2,798 µm/px (Incucyte 4×) |
-| Toplam | 59 488 tif, 44 GB |
+| Plate | 96 wells; **88 imaged** (column 9 was not imaged) |
+| Time | 13 points, ~8 h apart, 96 h total |
+| Channels | brightfield (1 plane), green, orange, NIR (17 z planes each) |
+| Channel → content | green = tumour, orange = T cells, NIR = dead cells |
+| Image | 1040 × 1408 px at 2.798 µm/px (Incucyte 4×) |
+| Total | 59 488 TIFF files, 44 GB |
 
-## Üç klasör, üç iş
+## Four directories
 
-| klasör | ne yapar | nereden başlanır |
+| directory | what it does | start here |
 |---|---|---|
-| **`data/inc_tests/`** | Ham veri, plaka haritası ve dosya listesi. Dokunulmadı. | [`data/inc_tests/README.md`](data/inc_tests/README.md) |
-| **`analysis/`** | Piksel tabanlı ölçüm ve altı ayrı analiz. Her analiz kendi sorusunu yanıtlar, kendi klasörüne yazar. | [`analysis/README.md`](analysis/README.md) |
-| **`atlas/`** | Sonuçları açılıp bakılabilir hâle getirir: kuyu başına 3B görünüm, figürler, tablolar ve segmentasyon kanıt sayfaları. | [`atlas/README.md`](atlas/README.md) |
-| `viewer/` | Ham görüntüleri kanalları üst üste bindirerek inceleyen yerel uygulama. | [`viewer/README.md`](viewer/README.md) |
+| **`data/inc_tests/`** | Raw data, plate map, file index. Untouched. | [`data/inc_tests/README.md`](data/inc_tests/README.md) |
+| **`analysis/`** | Pixel-based measurement and six analyses, each answering one question and writing its own folder. | [`analysis/README.md`](analysis/README.md) |
+| **`atlas/`** | One self-contained HTML page per well: 3D view, figures, tables, and a segmentation-check page. | [`atlas/README.md`](atlas/README.md) |
+| `viewer/` | Local app for browsing the raw images with the channels overlaid. | [`viewer/README.md`](viewer/README.md) |
 
-Aceleniz varsa: `atlas/site/index.html` dosyasını tarayıcıda açın.
+In a hurry: open `atlas/site/index.html`.
 
-## Kurulum ve çalıştırma
+## Running it
 
-Bağımlılıklar: `numpy scipy scikit-image pandas tifffile matplotlib pillow`
-(ayrıca `viewer/` için `fastapi uvicorn`).
+Dependencies: `numpy scipy scikit-image pandas tifffile matplotlib pillow`
+(plus `fastapi uvicorn` for `viewer/`).
 
 ```bash
-# 1. ölçüm — bir kez, ~20 dk
+# 1. measurement — once, ~20 min
 python3 analysis/extract.py --flat
 python3 analysis/extract.py --all --jobs 7
 
-# 2. analizler — sırayla, a1 dışlama listesini üretir
+# 2. analyses — in order; a1 writes the exclusion list the others read
 python3 analysis/a1_qc.py
 python3 analysis/a2_infiltration.py
 python3 analysis/a3_labelfree.py
@@ -44,57 +79,59 @@ python3 analysis/a4_depth.py
 python3 analysis/a5_death.py
 python3 analysis/a6_growth.py
 
-# 3. atlas — 3B görünüm, figürler, kanıt sayfaları
+# 3. atlas — 3D pages, figures, evidence pages
 python3 atlas/build.py  --all --jobs 7
 python3 atlas/thumbs.py --all --jobs 7
 python3 atlas/check.py  --all --jobs 7
 xdg-open atlas/site/index.html
 ```
 
-## Bu veriden çıkarılabilenler ve çıkarılamayanlar
+## What this data can and cannot answer
 
-Bu bölüm depo genelinde geçerli; ayrıntılar klasör README'lerinde.
+Details are in the directory READMEs; this is the short version.
 
-**Çıkarılabilir.** Kanal başına sinyal alanı ve hacmi; organoid kütlesi
-(brightfield'dan, boyadan bağımsız); bir popülasyonun organoidin içinde mi
-dışında mı olduğu ve kenardan ne kadar uzakta durduğu; derinlik dağılımı; bunların
-dört gün boyunca nasıl değiştiği; ve gruplar arası karşılaştırmalar.
+**Available.** Signal area and signal volume per channel; organoid mass from
+brightfield, independent of staining; whether a population sits inside or outside
+the organoid and how far from its boundary; the depth distribution; how all of
+that changes over four days; and comparisons between groups.
 
-**T hücresi sayısı tahmin edilebilir.** Ekim sayısı biliniyor (5000/kuyu), bundan
-90,8 µm²/hücre ölçeği kalibre edildi ve üç testten geçti — en önemlisi, ölçek
-hücre başına 10,8 µm eşdeğer çap öngörüyor, ki bu bir T hücresinin gerçek boyutu.
-Bu sayılar her yerde `≈` ile yazılıyor.
+**T-cell numbers can be estimated.** The seeding number is known (5000 per well),
+which calibrates a scale of 90.8 µm² per cell. The scale passed three checks — the
+important one being that it implies an equivalent cell diameter of 10.8 µm, the
+real size of a T cell. These numbers are always written with `≈`.
 
-**Tümör hücre sayısı çıkarılamaz.** Aynı hesap 2000 PDA hücresi için bir T
-hücresinden küçük bir hücre boyutu veriyor, yani imkânsız: green kanalı
-organoidlerin çoğunu boyamıyor. Tümör alan ve hacim olarak raporlanıyor.
+**Tumour cell numbers cannot.** The same calculation applied to the 2000 seeded
+PDA cells implies a cell smaller than a T cell, which is impossible: the green
+stain misses most organoids. Tumour is reported as area and volume.
 
-**Makrofaj ve CAF görüntüde bulunamaz.** Floresan işaretleyicileri yok; hangi
-kuyuda oldukları yalnızca plaka haritasından biliniyor.
+**Macrophages and CAFs cannot be located in the image.** They carry no fluorescent
+label; which wells contain them is known only from the plate map.
 
-**Mutlak derinlik ve µm³ hacim verilemez.** z adımı hiçbir dosyada kayıtlı değil —
-TIFF etiketlerinde optik alan yok, plaka XML'inde de yok. Derinlik katman indeksi
-olarak veriliyor; hacimler `µm²·katman` olarak, z adımıyla çarpılınca µm³ oluyor.
+**Absolute depth and µm³ volumes are not available.** The z step is recorded in no
+file — the TIFF tags carry no optical fields and the plate XML contains no optical
+entry at all. Depth is given as a layer index; volumes as `µm²·layer`, which
+becomes µm³ once multiplied by the z step.
 
-**Piksel boyutu doğrulanmadı.** 2,798 µm/px değeri cihazın kendi alan etiketinden
-(2,91 × 3,94 mm) geri hesaplandı. Boyutsuz ölçüler (oran, zenginleşme, pay) bu
-değerden bağımsız; µm ve mm² cinsinden her şey ona bağlı.
+**The pixel size is unverified.** The value 2.798 µm/px was back-calculated from
+the instrument's own field label (2.91 × 3.94 mm). Dimensionless measures — ratios,
+enrichment, shares — do not depend on it; everything in µm and mm² does.
 
-## Ölçüm neden piksel tabanlı, nesne tabanlı değil
+## Why the measurement is pixel-based rather than object-based
 
-2,798 µm/px'te bir T hücresi yaklaşık 2,5 piksel. Tek hücre segmentasyonu bu
-ölçekte güvenilir değil: eşik biraz kaydırılınca nesne sayısı katlanarak değişiyor.
-Doğrudan ölçüldü — T hücresi eklenen ve eklenmeyen kuyular arasındaki bağlı bileşen
-farkı 1155, beklenen 5000; yani her nesne ortalama 4,3 hücre içeriyor.
+At 2.798 µm/px a T cell is about 2.5 pixels across. Single-cell segmentation is
+not reliable at that scale: shift the threshold slightly and the object count
+changes several-fold. This was measured rather than assumed — the difference in
+connected-component count between wells with and without T cells is 1155 against
+5000 seeded, so each component holds about 4.3 cells.
 
-Alan oranları çok daha kararlı: eşik 0,67 ve 1,67 katına kaydırıldığında kuyu
-sıralamasının sıra korelasyonu 0,93–0,98 arasında kalıyor. Bu yüzden bütün ana
-ölçüler eşik üstü piksel/voksel alanı ve bunlardan türeyen oranlar.
+Area fractions are far more stable: scaling the threshold by 0.67 and 1.67 leaves
+the rank correlation of well ordering between 0.93 and 0.98. Every headline
+measure is therefore a threshold-above area, or a ratio derived from one.
 
-## Eşikler neden kuyuya uyarlanmıyor
+## Why thresholds are not adapted per well
 
-Kuyuya uyarlanan bir eşik her kuyuyu farklı ölçekler ve kuyular karşılaştırılamaz
-hâle gelir. Bütün eşikler plaka geneli sabit. Bunun bedeli, bazı kuyularda eşiğin
-cömert bazılarında cimri kalmasıdır — bu yüzden `atlas/site/check/` altındaki
-kanıt sayfaları var: ham görüntü ile ölçülen maskenin sınırı yan yana duruyor ve
-eşiğin nerede durduğu gözle denetlenebiliyor.
+A per-well threshold rescales every well differently and makes wells
+incomparable, so all thresholds are fixed plate-wide. The price is that the
+threshold is generous in some wells and stingy in others — which is precisely why
+`atlas/site/check/` exists: the raw image and the measured mask sit side by side,
+and where the threshold lands can be judged by eye.

@@ -34,6 +34,7 @@ sys.path.insert(0, str(ROOT / "analysis"))
 
 import common as C          # noqa: E402  auc, mwu_p, bh_fdr, boot_ci, cliffs_delta
 import calib                # noqa: E402
+import figures as FG        # noqa: E402
 import page as P            # noqa: E402
 import theme as TH          # noqa: E402
 
@@ -232,7 +233,8 @@ def main() -> None:
         raise SystemExit("ölçüm yok — önce: python3 atlas/build.py --all")
     d = build()
     SITE.mkdir(parents=True, exist_ok=True)
-    (SITE / "groups.html").write_text(P.groups_page(d), encoding="utf-8")
+    figs = FG.build_all(d)
+    (SITE / "groups.html").write_text(P.groups_page(d, figs), encoding="utf-8")
     print(f"[gruplar] {d['n_wells']} kuyu ({d['n_excluded']} QC dışı)  →  "
           f"{SITE / 'groups.html'}")
     e = d["enrich_coculture"]

@@ -84,7 +84,7 @@ const FIG = (() => {
      The T-cell panel carries a second tick row in cell equivalents — the same
      numbers divided by the calibrated area per cell, not a second measurement. */
   function depth(host, d, T, cal, onLayer) {
-    const W = 600, H = 268, top = 46, bot = 52, left = 36, gap = 30;
+    const W = 600, H = 276, top = 46, bot = 62, left = 36, gap = 30;
     const pw = (W - left - gap * 2 - 10) / 3, ph = H - top - bot;
     const svg = el("svg", { class: "plot", viewBox: `0 0 ${W} ${H}`, role: "img" });
     const nz = d.by_z.green.length;
@@ -152,8 +152,8 @@ const FIG = (() => {
       svg.append(el("line", { x1: x, y1: top, x2: x, y2: top + ph, stroke: "#c9c8c3" }));
     });
 
-    svg.append(text(left, 12, "z00 at the bottom; layer spacing is not to scale " +
-      "(z step is not recorded)", { fill: MUTED, "font-size": 9.5 }));
+    svg.append(text(left, H - 6, "z00 at the bottom · layer spacing is not to " +
+      "scale (the z step is not recorded)", { fill: MUTED, "font-size": 9.5 }));
     host.replaceChildren(svg);
     return svg;
   }
@@ -204,7 +204,7 @@ const FIG = (() => {
     svg.append(text(bx + 6, top + 11, "outside", { fill: MUTED, "font-size": 10 }));
     svg.append(el("line", { x1: left, y1: Y(1), x2: left + pw, y2: Y(1), stroke: INK2,
       "stroke-width": 1.2 }));
-    svg.append(text(left + pw + 6, Y(1) + 3.4, "1.0 = as expected", { fill: INK2,
+    svg.append(text(left + pw + 6, Y(1) + 3.4, "1.0 = uniform", { fill: INK2,
       "font-size": 10 }));
 
     const NAME = { green: "tumour", orange: "T cells", nir: "dead cells" };
@@ -263,9 +263,12 @@ const FIG = (() => {
      much of it there is relative to another channel. Sequential single-hue ramp:
      colour carries magnitude, not identity. */
   function zband(host, d, T, labels) {
-    const W = 600, H = 288, top = 42, bot = 78, left = 40, gap = 24;
+    // Wide figures are drawn at their display width so the type is the same
+    // size as in the half-width figures; a 600-unit viewBox stretched to
+    // 1200 px doubles every label.
+    const W = 1200, H = 340, top = 48, bot = 88, left = 54, gap = 40;
     const nz = d.by_z.green.length, nb = labels.length;
-    const pw = (W - left - gap * 2 - 14) / 3, ph = H - top - bot;
+    const pw = (W - left - gap * 2 - 24) / 3, ph = H - top - bot;
     const cw = pw / nb, ch_ = ph / nz;
     const svg = el("svg", { class: "plot", viewBox: `0 0 ${W} ${H}`, role: "img" });
 
@@ -302,9 +305,9 @@ const FIG = (() => {
         const bx = x0 + 5 * cw;
         svg.append(el("line", { x1: bx, y1: top, x2: bx, y2: top + ph, stroke: "#0b0b0b",
           "stroke-width": 1, opacity: .45 }));
-        svg.append(text(x0, top + ph + 13, "in", { fill: MUTED, "font-size": 9.5 }));
-        svg.append(text(x0 + pw, top + ph + 13, "out", { fill: MUTED, "font-size": 9.5,
-          "text-anchor": "end" }));
+            svg.append(text(x0, top + ph + 13, "inside", { fill: MUTED, "font-size": 9.5 }));
+        svg.append(text(x0 + pw, top + ph + 13, "outside", { fill: MUTED,
+          "font-size": 9.5, "text-anchor": "end" }));
       });
 
     const sw = 104, sx = left, sy = H - 36;
@@ -317,8 +320,7 @@ const FIG = (() => {
     svg.append(text(sx + sw + 16, sy + 7,
       "each panel is scaled to its own total — panels are not comparable to each other",
       { fill: MUTED, "font-size": 9.5 }));
-    svg.append(text(left, 12, "rows: z layer · columns: signed distance to the " +
-      "organoid boundary", { fill: MUTED, "font-size": 9.5 }));
+
     host.replaceChildren(svg);
     return svg;
   }
@@ -327,8 +329,8 @@ const FIG = (() => {
   /* Figure: how each quantity changed over the four days.
      Four quantities, four units, four panels. */
   function timecourse(host, frames, times, T, tcur, cal) {
-    const W = 600, H = 206, top = 42, bot = 42, left = 8, gap = 18;
-    const pw = (W - left - gap * 3 - 12) / 4, ph = H - top - bot;
+    const W = 1200, H = 250, top = 48, bot = 48, left = 16, gap = 36;
+    const pw = (W - left - gap * 3 - 24) / 4, ph = H - top - bot;
     const svg = el("svg", { class: "plot", viewBox: `0 0 ${W} ${H}`, role: "img" });
     const days = times.map(t => t.hours / 24);
     const dmax = Math.max(...days);

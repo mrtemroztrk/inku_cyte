@@ -44,10 +44,17 @@ def _cond(m: dict) -> str:
 
 
 def _fig(fid: str, num: str, title: str, question: str, caption: str,
-         wide: bool = False, svg: bool = True) -> str:
+         wide: bool = False, svg: bool = True, img: str | None = None) -> str:
+    """Bir figür bloğu. `img` verilirse figür sunucuda matplotlib ile çizilmiş
+    demektir ve doğrudan gömülür; verilmezse tarayıcı çizer (kuyu sayfası)."""
     tools = f'<button data-tbl="{fid}">table</button>'
-    if svg:
-        tools += f'<button data-svg="{fid}">SVG</button>'
+    if img:
+        tools += (f'<a class="dl" download="{fid}.svg" href="{img}">SVG</a>')
+        body = f'<img class="pubfig" src="{img}" alt="{title}">'
+    else:
+        if svg:
+            tools += f'<button data-svg="{fid}">SVG</button>'
+        body = f'<div id="fig_{fid}"></div>'
     return f"""
       <figure class="{'wide' if wide else ''}" id="figure_{fid}">
         <div class="fighead">
@@ -55,7 +62,7 @@ def _fig(fid: str, num: str, title: str, question: str, caption: str,
           <div class="tools">{tools}</div>
         </div>
         <p class="figq">{question}</p>
-        <div id="fig_{fid}"></div>
+        {body}
         <div class="tbl" id="tbl_{fid}"></div>
         <figcaption>{caption}</figcaption>
       </figure>"""
@@ -374,7 +381,7 @@ window.THEME={_theme_js()};</script>
 
 
 # --------------------------------------------------------------- grup sayfası
-def groups_page(d: dict) -> str:
+def groups_page(d: dict, figs: dict) -> str:
     cal = d["calibration"]
     tc = cal["tcell"]
     dm = d["dead_matched"]
@@ -401,12 +408,12 @@ def groups_page(d: dict) -> str:
              "the territory covers 6 % of the field in one well and 59 % in "
              "another, and there even a random population would come out “mostly "
              "inside”. Day 4, T-cell wells only. Log axis — the quantity is a "
-             "ratio. " + stat_note, wide=True),
+             "ratio. " + stat_note, wide=True, img=figs["enrich_coc"]),
         _fig("enrich_cmp", "Figure 2", "T-cell enrichment by compound",
              "Do the KRAS and SRC inhibitors change T-cell access to the organoid?",
              "The same measure grouped by treatment, day 4, T-cell wells only. "
              "Doses are in the plate map: KRAS 10 and 100 nM, SRC 50 and 200 nM. "
-             + stat_note, wide=True),
+             + stat_note, wide=True, img=figs["enrich_cmp"]),
         _fig("dist", "Figure 3", "How deep into the organoid the T cells reach",
              "Not whether T cells are inside, but how far inside they get.",
              "Median signed distance of the T-cell signal to the organoid boundary: "
@@ -425,20 +432,20 @@ def groups_page(d: dict) -> str:
              + (" (" + ", ".join(conf.get("dropped", [])) + ")"
                 if conf.get("dropped") else "")
              + ". Figure 1 is unaffected — enrichment is a density ratio and does "
-               "not have this dependence. " + stat_note, wide=True),
+               "not have this dependence. " + stat_note, wide=True, img=figs["dist"]),
         _fig("growth", "Figure 4", "Organoid growth",
              "How does the organoid mass develop, and does the co-culture change it?",
              "Brightfield territory area, independent of staining. Thin lines are "
              "individual wells, the heavy line is the group median. All four panels "
              "share one y axis, so they are directly comparable to each other — "
-             "the unit is the same.", wide=True),
+             "the unit is the same.", wide=True, img=figs["growth"]),
         _fig("dead", "Figure 5", "Effect of adding T cells on dead-cell signal",
              "Do the T cells kill?",
              "Matched design with co-culture held constant: co-culture affects both "
              "death and T-cell distribution on its own, so pooling T-cell and "
              "T-cell-free wells across co-cultures would confound the two. The "
              "dashed line joins the two medians. " + sign + " " + stat_note,
-             wide=True),
+             wide=True, img=figs["dead"]),
         _fig("tumour", "Figure 6", "Effect of adding T cells on tumour signal",
              "Does adding T cells reduce the tumour?",
              "The same matched design on tumour signal area. This is not a tumour "
@@ -446,7 +453,7 @@ def groups_page(d: dict) -> str:
              "population, so the area is a lower bound, and if staining efficiency "
              "differs between groups a difference could come from staining rather "
              "than from biology. Read together with Figure 5. " + stat_note,
-             wide=True),
+             wide=True, img=figs["tumour"]),
         _fig("calib", "Figure 7", "Calibration of the T-cell scale",
              "Is the conversion from signal area to cell number trustworthy?",
              "Left: the area-per-cell scale derived independently in each "
@@ -456,7 +463,7 @@ def groups_page(d: dict) -> str:
              "2000 seeded tumour cells is shown for comparison and falls below the "
              "size of a T cell, which is impossible — that is why tumour signal is "
              "never converted to a cell count. This figure is the evidence for the "
-             "≈ numbers used everywhere else.", wide=True, svg=True),
+             "≈ numbers used everywhere else.", wide=True, img=figs["calib"]),
     ])
 
     return f"""<!doctype html>

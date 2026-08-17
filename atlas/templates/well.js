@@ -22,7 +22,7 @@
   const scene = new SCENE.Scene($("#scene"), {
     vox_um: D.voxel_um, colors: T.scene, terrColor: T.terrScene,
     onView: v => { $("#viewlabel").textContent =
-      `az ${Math.round(((v.az % 360) + 360) % 360)}° · el ${Math.round(v.el)}° · ` +
+      `az ${Math.round(((v.az % 360) + 360) % 360)}° · el ${Math.round(v.elev)}° · ` +
       `${fmt(v.zoom, 1)}×`; },
   });
 
@@ -308,6 +308,19 @@
 
   window.addEventListener("blur", FIG.untip);
 
+  /* Screenshot hook. atlas/shoot.py drives the page through the URL fragment so
+     that the figures in the README are produced by the real page rather than
+     mocked up. Inert unless a #shoot= fragment is present. */
+  window.SHOOT = {
+    slice(mode, z) {
+      sliceMode = mode; cut = z;
+      $("#slicemode").value = mode; $("#cut").value = z;
+      applySlice(); scene.draw();
+    },
+    view(az, elev) { scene.az = az; scene.elev = elev; scene.changed(); scene.draw(); },
+    time(i) { return setFrame(i); },
+  };
+
   // -------------------------------------------------------------- start-up
   applySlice();
   setFrame(t).then(async () => {
@@ -317,5 +330,13 @@
         await scene.load(i, F[i], F[i].grid);
         await new Promise(r => setTimeout(r, 0));       // keep the page responsive
       }
+    runShootHook();
   });
+
+  function runShootHook() {
+    const m = /#shoot=(.*)$/.exec(location.hash);
+    if (!m) return;
+    try { new Function(decodeURIComponent(m[1]))(); scene.draw(); }
+    catch (err) { console.error("shoot hook", err); }
+  }
 })();

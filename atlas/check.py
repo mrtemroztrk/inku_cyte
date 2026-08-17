@@ -124,7 +124,12 @@ def build_well(well: str, ti: int) -> dict:
     planes_all = {ch: E.plane_paths(well, ch, stamp) for ch in ("green", "orange", "nir")}
     nz = len(planes_all["green"])
 
-    raw, over, stats = [], [], []
+    raw, over, cum, stats = [], [], [], []
+    # Birikimli görüntü: 0..z arası maksimum projeksiyon. "Alt katmanlar açık
+    # kalsın" seçildiğinde 3B'de görünen dilim ile fotoğrafın gösterdiği şey aynı
+    # olmalı — tek düzlemlik bir fotoğrafı çok katmanlı bir dilimle karşılaştırmak
+    # hizalama kanıtını bozardı.
+    run = {ch: None for ch in ("green", "orange", "nir")}
     for z in range(nz):
         pl, mk = {}, {}
         for ch in ("green", "orange", "nir"):
@@ -132,8 +137,10 @@ def build_well(well: str, ti: int) -> dict:
             a -= float(np.median(a))
             pl[ch] = a
             mk[ch] = a > thr[ch]["main"]
+            run[ch] = a.copy() if run[ch] is None else np.maximum(run[ch], a)
         raw.append(_b64(render_plane(pl, mk, hi, False)))
         over.append(_b64(render_plane(pl, mk, hi, True)))
+        cum.append(_b64(render_plane(run, mk, hi, False)))
         stats.append({ch: {"px": int(mk[ch].sum()),
                            "mm2": round(float(mk[ch].sum()) * px_mm2, 6),
                            "in_terr": int((mk[ch] & terr).sum())}
@@ -143,7 +150,7 @@ def build_well(well: str, ti: int) -> dict:
         "well": well, "t": ti, "stamp": stamp, "nz": nz,
         "shape": [bf.shape[0] // BIN, bf.shape[1] // BIN],
         "um_per_px": um * BIN,
-        "raw": raw, "over": over, "stats": stats,
+        "raw": raw, "over": over, "cum": cum, "stats": stats,
         "bf": {"raw": _b64(render_bf(bf, terr, False)),
                "over": _b64(render_bf(bf, terr, True)),
                "terr_mm2": round(float(terr.mean()) * bf.size * px_mm2, 4),
@@ -199,20 +206,34 @@ def page(d: dict, meta: dict) -> str:
       show measured mask outline</label>
     <label class="chk"><input type="checkbox" id="showbf">
       brightfield instead of fluorescence</label>
+    <label class="sel">layers
+      <select id="stack">
+        <option value="one">this layer only</option>
+        <option value="cum">this layer and everything below</option>
+      </select>
+    </label>
+    <label class="chk"><input type="checkbox" id="overlay">
+      <b>overlay photo on the reconstruction</b></label>
+    <label class="chk" id="mixwrap" hidden>photo
+      <input type="range" id="mix" class="cut" min="0" max="100" value="55"
+             aria-label="photo opacity">
+      <span class="cutlabel" id="mixlabel">55 %</span></label>
   </div>
 
-  <div class="checkgrid">
-    <figure>
+  <div class="checkgrid" id="grid">
+    <figure id="leftfig">
       <div class="imgbox"><img id="shot" alt="raw plane"></div>
       <figcaption id="shotcap"></figcaption>
     </figure>
-    <figure>
+    <figure id="rightfig">
       <div class="scene" id="scene" tabindex="0">
-        <div class="hintbar">drag orbit · scroll zoom · double-click reset</div>
+        <img id="ovl" alt="" hidden>
+        <div class="hintbar" id="scenehint">drag orbit · scroll zoom ·
+          double-click reset</div>
       </div>
-      <figcaption>The same layer isolated in the voxel reconstruction. Every dot
-      is one 5.6 µm voxel above threshold — one dot on the right for a patch that
-      crossed the threshold on the left.</figcaption>
+      <figcaption id="scenecap">The same layer isolated in the voxel
+      reconstruction. Every dot is one 5.6 µm voxel above threshold — one dot here
+      for a patch that crossed the threshold on the left.</figcaption>
     </figure>
   </div>
 
@@ -237,6 +258,15 @@ def page(d: dict, meta: dict) -> str:
       plane's own median has been subtracted). The brightfield outline is the
       organoid territory: more than {d['bf_thr']:.0f} grey levels darker than the
       background, closed and hole-filled.</p>
+      <h4>Checking that the reconstruction is in the right place</h4>
+      <p>Tick <b>overlay photo on the reconstruction</b>. The camera locks to a
+      straight top-down view and the projection is scaled so that one voxel lands
+      exactly on the pixels it was measured from; the photograph is then blended
+      on top. If the reconstruction were shifted, rotated or flipped relative to
+      the image, every dot would sit beside its blob instead of on it, and the
+      slider would show two offset copies of the same pattern. Sweeping the
+      slider from 0 to 100 % is the check: the dots should disappear <i>into</i>
+      the stain, not slide across it.</p>
       <h4>What to look for</h4>
       <p>Signal inside no outline means the threshold missed it. Outline around
       nothing visible means the threshold fired on noise. Both are real failure

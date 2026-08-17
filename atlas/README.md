@@ -1,216 +1,279 @@
-# atlas/ — kuyu başına 3B görünüm, figürler ve kanıt sayfaları
+# atlas/ — 3D view, figures and evidence pages, one file per well
 
-Bu klasör, ölçüm sonuçlarını **açılıp bakılabilir hâle** getiriyor. Her kuyu için
-tek bir HTML dosyası üretiliyor; çift tıklayınca açılıyor, sunucu gerekmiyor,
-internet gerekmiyor.
+This directory turns the measurements into something you can open and look at.
+Each well becomes a single self-contained HTML file: double-click it, no server,
+no internet.
 
-Sayfalardaki metin İngilizce, çünkü çıktı dergiye ve ortak yazarlara gidiyor.
-Koddaki yorumlar depo genelindeki gibi Türkçe.
+![building the stack layer by layer](../docs/slice.gif)
 
-## Çalıştırma
+## Running it
 
 ```bash
-python3 atlas/build.py --all --jobs 7    # ölçüm + sayfalar        ~30 dk (bir kez)
-python3 atlas/thumbs.py --all --jobs 7   # kanıt küçük resimleri   ~15 dk (bir kez)
-python3 atlas/check.py  --all --jobs 7   # segmentasyon kanıt sayfaları ~5 dk
-python3 atlas/build.py --pages           # sayfaları yeniden üret  saniyeler
+python3 atlas/build.py  --all --jobs 7   # measure + pages       ~30 min (once)
+python3 atlas/thumbs.py --all --jobs 7   # evidence thumbnails   ~15 min (once)
+python3 atlas/check.py  --all --jobs 7   # segmentation pages     ~5 min
+python3 atlas/build.py  --pages          # rebuild pages          seconds
 xdg-open atlas/site/index.html
 ```
 
-Ölçüm bir kez yapılır ve `atlas/cache/` altına yazılır. Metni, figürü, birimi
-değiştirmek istediğinizde yalnızca `--pages` çalıştırmak yeter — 30 dakikalık
-ölçüm tekrar etmez.
+The measurement runs once and is cached under `atlas/cache/`. Changing wording, a
+figure or a unit only needs `--pages`; the 30-minute measurement does not repeat.
 
-Denetim:
+Checks:
 
 ```bash
-python3 atlas/calib.py               # hücre sayısı kalibrasyonu ve testleri
-python3 atlas/palette_check.py       # renklerin renk körlüğü denetimi
-python3 atlas/selftest.py            # üretilen sayfalarda kırık bir şey var mı
-python3 atlas/selftest.py --vs-analysis   # sayılar analysis/ hattıyla aynı mı
+python3 atlas/calib.py                  # the signal-to-cell calibration and its tests
+python3 atlas/palette_check.py          # colour-vision check on the channel colours
+python3 atlas/selftest.py               # anything broken in the generated pages
+python3 atlas/selftest.py --vs-analysis # do the numbers match the analysis/ pipeline
+python3 atlas/shoot.py B04.html         # screenshot a page (headless Chrome)
+python3 atlas/shoot.py B04.html --gif slice   # the animations in this README
 ```
 
-## Dört tür sayfa
+## Four kinds of page
 
-| dosya | ne gösterir |
+| file | what it shows |
 |---|---|
-| `site/index.html` | 96 kuyuluk plaka. Seçtiğiniz ölçüye göre renkli; bir kuyuya tıklayınca sayfası açılır. |
-| `site/<kuyu>.html` | O kuyunun 3B görünümü, dört figür, dört tablo, ve her sayının nereden geldiğini anlatan yöntem bölümü. |
-| `site/groups.html` | Kuyular arası karşılaştırma: yedi figür, altı istatistik tablosu. Makaleye giren figürler bunlar. |
-| `site/check/<kuyu>.html` | **Kanıt sayfası.** Solda ham fotoğraf, üstünde ölçülen maskenin sınırı; sağda aynı katmanın 3B karşılığı. z'de gezinirken ikisi birlikte hareket eder. |
+| `site/index.html` | The 96-well plate, coloured by whichever measure you pick. Click a well to open it. |
+| `site/<well>.html` | That well in 3D, four figures, four tables, and a methods section explaining where every number comes from. |
+| `site/groups.html` | Comparisons across wells: seven figures and six statistics tables. These are the manuscript figures. |
+| `site/check/<well>.html` | **Evidence.** The raw plane on the left with the measured mask outlined, the same layer in 3D on the right, moving together through z. Plus an overlay mode that proves the reconstruction sits where the stain is. |
 
-## 3B görünümde gezinme
+### The overlay check
 
-Blender'daki gibi:
+![sweeping the photograph over the reconstruction](../docs/overlay.gif)
 
-| | |
-|---|---|
-| sürükle | döndür |
-| shift+sürükle veya orta tuş | kaydır |
-| tekerlek | yakınlaştır (imlecin olduğu yere doğru) |
-| çift tık | başa dön |
-| `1` `3` `7` `9` | önden, sağdan, tepeden, alttan |
+Ticking **overlay photo on the reconstruction** locks the camera straight down and
+scales the projection so one voxel covers exactly the pixels it was measured from,
+then blends the photograph on top with a slider. If the reconstruction were
+shifted, rotated, flipped or mis-scaled, the sweep would show two offset copies of
+the same pattern; instead the dots fade in place.
 
-Yukarıdaki çubuktan **katman dilimleme** açılıyor: aşağıdan yukarı inşa etme,
-yukarıdan aşağı soyma, ya da tek katman. Oynat tuşu bunu animasyona çevirir.
-Dilimlerken altta "görünen dilimde şu kadarı var" yazısı çıkar — göz yanılmasın
-diye.
+The photograph is shown **without** the mask outline in this mode on purpose — the
+outline comes from the same mask as the voxels, so comparing the two would be
+circular. The test is whether the voxels land on the stain itself. Zoom and pan
+apply to both layers at once, so the check survives being examined closely.
 
-Bu denetimlerin hiçbiri ölçümü değiştirmiyor. Eşik, arkaplan çıkarma ve maskeler
-çıkarım hattında plaka geneli sabit; kuyudan kuyuya değişen bir eşik kuyuları
-karşılaştırılamaz hâle getirir. Bir sayının ne anlama geldiği yöntem bölümünde
-yazıyor, kaydırıcıyla ayarlanmıyor.
+The **layers** control decides what both sides show:
 
-## Kuyu sayfasındaki dört figür
-
-Her figür tek bir soruyu yanıtlıyor:
-
-| figür | soru |
-|---|---|
-| 1 — derinlikte sinyal | hangi z katmanında ne kadar var |
-| 2 — kenara uzaklık | organoidin içinde mi, kenarında mı, dışında mı |
-| 3 — derinlik × uzaklık | ikisi birden: hangi derinlikte, kenardan hangi uzaklıkta |
-| 4 — zaman seyri | dört gün boyunca nasıl değişti |
-
-Figür 1'de bir çubuğa tıklayınca iki şey oluyor: o katman 3B'de yalnız kalıyor ve
-**o katmanın gerçek fotoğrafı** sayfada açılıyor. Yani "bu katmanda şu kadar var"
-iddiası, sayfadan çıkmadan görüntüye karşı denetlenebiliyor.
-
-Her figürün altında tablo görünümü ve SVG indirme var; tablolar CSV olarak iniyor,
-3B sahne PNG (üç kat çözünürlükte) ve dört görünümlü panel olarak. Ekranda ne
-varsa makaleye o gidiyor.
-
-## Hücre sayısı: ne söylüyoruz, ne söylemiyoruz
-
-Bu en dikkat gerektiren kısım, o yüzden uzun anlatıyorum.
-
-**Ölçülen şey sinyal alanıdır.** mm² cinsinden yazan her şey, eşiğin üstünde kalan
-piksellerin alanıdır — doğrudan ölçüm. Hücre sayısı ise **türetilmiş tahmindir** ve
-her yerde `≈` ile yazılır.
-
-**T hücresi sayısı nereden çıkıyor.** Ekim sayıları biliniyor: T hücresi eklenen
-kuyulara 5000 hücre konmuş. T'li ve T'siz kuyular arasındaki sinyal alanı farkı
-5000'e bölününce **90,8 µm²/hücre** çıkıyor. Bu ölçeği kullanmadan önce üç testten
-geçirdim:
-
-1. Ölçek, hücre başına **10,8 µm eşdeğer çap** öngörüyor. Bir T hücresi 7–10 µm;
-   2,798 µm/px'te floresan taşmasıyla birlikte beklenen değer tam olarak bu. Yani
-   ölçek biyolojik olarak imkânsız bir hücre boyutu üretmiyor.
-2. Dört ko-kültür grubu (PDA, +CAF, +MAC, +CAF+MAC) ölçeği **birbirinden bağımsız**
-   olarak 84–102 µm² aralığında tekrarlıyor.
-3. Kuyular arası dağılım dar (CV %20), medyanın güven aralığı ±%9.
-
-**Tümör neden hücre olarak sayılmıyor.** Aynı hesabı 2000 PDA hücresi için
-yaptığımda 8,9 µm eşdeğer çap çıkıyor — bir T hücresinden küçük, yani imkânsız.
-Sebebi belli: green kanalı organoidlerin çoğunu boyamıyor (QC ölçümünde BF'de
-görülen organoidlerin medyan %15'inde green sinyali var). Bu kalibrasyon
-hesaplandı ve **reddedildi**; sayfada gösteriliyor ki reddin gerekçesi
-denetlenebilsin.
-
-**Nesne saymak neden işe yaramıyor.** T'li ve T'siz kuyular arasındaki bağlı
-bileşen farkı 1155, beklenen 5000. Yani bu çözünürlükte her nesne ortalama 4,3
-hücre içeriyor. Bütün ölçüler bu yüzden alan tabanlı.
-
-**Katman başına hücre sayısındaki tuzak.** Kalibrasyon, z boyunca maksimum
-projeksiyonun maskesi üzerinde tanımlı. Katman başına alanlar farklı bir büyüklük:
-toplamları projeksiyon alanının 3–5 katı, çünkü 4× objektifin odak derinliği
-onlarca mikron ve aynı hücre birkaç katmanda görünüyor. Katman alanını aynı ölçeğe
-bölmek hücre sayısını kat kat şişirirdi. Bu yüzden katman başına hücre sayısı
-**kuyu toplamının dağıtılmasıdır**: her katman, sinyal payı kadarını alır ve
-katmanların toplamı tam olarak kuyu toplamına eşit olur. Sayfada ve tabloda böyle
-yazıyor. Uzaklık bantlarında bu sorun yok — bantlar projeksiyon maskesinden
-hesaplanıyor, alanları tam olarak projeksiyon alanına eşit, ölçek doğrudan
-uygulanabiliyor.
-
-## Dome — ve çoğu kuyuda neden yok
-
-Dome, brightfield organoid teritoryasının **en büyük bağlı bileşenine** uyduruluyor.
-Tüm teritoryaya uydurulsaydı dağınık döküntü ağırlık merkezini kadrajın ortasına
-çeker ve yarıçap kuyunun değil kadrajın ölçüsü olurdu (B04'te 1689 µm yerine
-1053 µm).
-
-En büyük bileşen teritoryanın yarısından azını kaplıyorsa kuyu çok organoidlidir ve
-"merkezden uzaklık" tanımlı bir büyüklük değildir; o kuyularda dome halkası
-çizilmiyor. Ölçülen: B02 %97 ve B04 %86 tek kütle, ama B01 %16 ve A01 %26. Bu
-yüzden birincil çerçeve dome değil, **organoid kenarına işaretli uzaklık** — her
-iki durumda da çalışıyor.
-
-## Birimler
-
-| büyüklük | birim | neye dayanıyor |
+| setting | photograph | reconstruction |
 |---|---|---|
-| zenginleşme, pay, oran, AUC, Cliff δ | boyutsuz | **hiçbir şeye** |
-| piksel ve voksel sayıları | sayı | **hiçbir şeye** |
-| alan (mm², µm²), uzaklık (µm) | µm türevi | 2,798 µm/px — cihazın kendi alan etiketinden geri hesaplandı, **doğrulanmadı** |
-| ≈ T hücresi sayısı | hücre | yukarıdaki kalibrasyon |
-| sinyal hacmi | µm²·katman | z adımıyla çarpılınca µm³ olur |
-| derinlik | z katman indeksi | z adımı hiçbir dosyada yok |
+| this layer only | the single raw plane | only that layer lit |
+| this layer and everything below | maximum projection of planes 0…z | layers 0…z lit |
 
-Piksel boyutunu değiştirmek isterseniz `INC_UM_PER_PX=... python3 atlas/build.py
---pages` — ölçüm tekrar edilmez.
+Both sides always show the same accumulation — comparing a single-plane photograph
+against a multi-layer slab would break the very thing the overlay is meant to
+demonstrate.
 
-### z adımı arandı, gerçekten yok
+Only XY placement is testable this way. The z axis carries no micron scale, so
+there is nothing to register it against.
 
-TIFF etiketlerinde tek bir optik alan yok (`XResolution` sabit 72 dpi yer tutucu,
-`Software` dışında hiçbir cihaz alanı yok). `plate_map.PlateMap` XML'inde `z`,
-`step`, `objective`, `plane`, `focus`, `micron` kelimelerinin **sıfır** geçişi var;
-dosya yalnızca kuyu içeriği ve ekim yoğunluğu taşıyor.
+## Moving around in 3D
 
-Bu yüzden 3B'de XY ekseni gerçek ölçekli ve ölçek çubuğu taşıyor, **z ekseni ise
-sıralı**: katmanlar eşit aralıklı çiziliyor, katman numaralarıyla etiketleniyor ve
-µm iddia edilmiyor. Ayrımın görünür olması için z ekseninde bilerek ölçek çubuğu
-yok. Ayrıca z00 mutlak bir yükseklik değil — odak kuyu başına ayarlanıyor, o yüzden
-kuyular arasında dağılımın *şeklini* karşılaştırın, katman numarasını değil.
-
-Değer tarama protokolünden bulunursa hacimler tek çarpanla µm³'e döner.
-
-## Renkler denetlendi
-
-Alışılmış yeşil/turuncu/kırmızı floresan üçlüsü kullanılmadı. Ölçüldüğünde
-kalıyor: kırmızı-kör görüşte yeşil ile turuncu arasındaki fark ΔE 3,2 (taban 6,0),
-turuncu ile kırmızı arasındaki fark normal görüşte bile ΔE 7,1 (taban 15,0). Yani
-erkek okurların yaklaşık %8'i tümörü T hücresinden ayıramazdı. Kullanılan üçlü her
-iki modda da bütün eşikleri geçiyor (`python3 atlas/palette_check.py`). Renk yine
-de tek taşıyıcı değil: her seri doğrudan etiketli ve her figürün tablo görünümü
-var.
-
-## Dosyalar
+Blender conventions:
 
 | | |
 |---|---|
-| `calib.py` | hücre kalibrasyonu; doğrulama testleri ve reddedilenler |
-| `measure.py` | kuyu-zaman başına 3B ölçüm; eşikler `analysis/extract.py`'den birebir |
-| `build.py` | ölçümü koşturur, türetilmiş büyüklükleri hesaplar, sayfaları yazar |
-| `groups.py` | kuyular arası karşılaştırma ve istatistik |
-| `check.py` | segmentasyon kanıt sayfaları (tam çözünürlük) |
-| `thumbs.py` | kuyu sayfasına gömülen kanıt küçük resimleri |
-| `page.py` | HTML üretimi — burada hiçbir sayı hesaplanmaz, yalnızca yerleşim ve metin |
-| `theme.py`, `palette_check.py` | renkler ve renk denetimi |
-| `selftest.py` | üretilen sayfaların denetimi + `analysis/` hattıyla karşılaştırma |
+| drag | orbit |
+| shift-drag or middle-drag | pan |
+| scroll | zoom toward the cursor |
+| double-click | reset |
+| `1` `3` `7` `9` | front, right, top, bottom |
+
+The toolbar above the scene slices the stack: build up from the bottom, peel down
+from the top, or show a single layer. The play button animates it. While slicing,
+a line underneath reports how much of each channel the visible slab actually
+contains, so the eye is not left to guess.
+
+None of these controls changes a measurement. Thresholds, background subtraction
+and masks are fixed plate-wide in the extraction pipeline, because a threshold
+that moves from well to well makes wells incomparable. What a number means is
+written in the methods section, not adjusted with a slider.
+
+## The four figures on a well page
+
+Each answers one question:
+
+| figure | question |
+|---|---|
+| 1 — signal by depth | at which z layer does each population sit |
+| 2 — distance to the boundary | inside the organoid, at its rim, or outside |
+| 3 — depth × distance | both at once: which depth, and how far from the edge |
+| 4 — time course | how each quantity changed over four days |
+
+Clicking a bar in Figure 1 does two things: it isolates that layer in the 3D
+scene, and it puts **the actual photograph of that layer** on the page. A claim
+about a layer can be checked against its pixels without leaving the page.
+
+Every figure has a table view and an SVG download; tables download as CSV, the 3D
+scene as PNG (3× resolution) or as a four-view panel. What is on screen is what
+goes into the manuscript.
+
+## Two kinds of figure, on purpose
+
+The **group page** figures are drawn server-side with matplotlib
+(`atlas/figures.py`). These are the figures that go into a paper, and readers in
+this field have spent their careers reading matplotlib and R output — a figure
+that looks like the ones they already read is one they can interpret without
+first learning its conventions. They carry n per group, the median with its
+bootstrap confidence interval, an omnibus test, and significance brackets only
+where a comparison survives correction.
+
+The **well page** figures are drawn in the browser, because they follow the time
+slider. They use the same conventions.
+
+No box plots anywhere: conditions hold 4 to 17 wells, and a box plot invents
+quartiles at that size. Every well is a point.
+
+## Cell numbers: what is claimed and what is not
+
+This is the part that needs the most care.
+
+**What is measured is signal area.** Everything written in mm² is the area of the
+pixels above threshold — a direct measurement. A cell count is a **derived
+estimate** and is written with `≈` everywhere it appears.
+
+**Where the T-cell number comes from.** The seeding numbers are known: wells
+marked for T cells received 5000. The difference in projected signal area between
+those wells and matched T-cell-free wells, divided by 5000, gives **90.8 µm² per
+cell**. Before using that scale it had to pass three checks:
+
+1. It implies an equivalent cell diameter of **10.8 µm**. A T cell is 7–10 µm, and
+   at 2.798 µm/px with fluorescence bloom this is the value one should get. The
+   scale does not imply a biologically impossible cell.
+2. The four co-culture groups reproduce it **independently**, at 84–102 µm².
+3. The between-well spread is narrow (CV 20 %, 95 % CI ±9 %).
+
+**Why the tumour is not counted in cells.** The same calculation for 2000 seeded
+PDA cells gives an equivalent diameter of 8.9 µm — smaller than a T cell, which is
+impossible for a tumour cell. The reason is known: the green stain misses most
+organoids (a median 15 % of brightfield objects carry any green signal). This
+calibration was computed and **rejected**; it is shown on the group page so the
+rejection can be checked.
+
+**Why objects are not counted.** The difference in connected-component count
+between wells with and without T cells is 1155 against 5000 seeded — each
+component holds about 4.3 cells at this resolution.
+
+**The trap in per-layer counts.** The calibration is defined on the projected
+(maximum-intensity) mask. Layer areas are a different quantity: they sum to 3–5×
+the projected area, because the depth of field of a 4× objective is tens of
+microns and one cell appears in several layers. Dividing a layer area by the same
+scale would inflate the count severalfold. Per-layer cell equivalents therefore
+**apportion the well total** across layers in proportion to signal, and sum
+exactly to the well total. The pages and tables say so, and report the overcount
+factor for that frame. Distance bands do not have this problem — they are computed
+on the projected mask, so band areas sum exactly to the projected area and the
+scale applies directly.
+
+## The dome, and why most wells do not have one
+
+The dome is fitted to the **largest connected component** of the brightfield
+territory, not to the whole territory: scattered debris drags the centroid to the
+middle of the frame and the radius becomes a measure of the frame rather than of
+the well (1053 µm instead of 1689 µm in B04).
+
+If the largest component holds less than half the territory, the well is
+multi-organoid and "distance from the centre" is not a defined quantity; no dome
+ring is drawn there. Measured: B02 97 % and B04 86 % single mass, but B01 16 % and
+A01 26 %. The primary frame is therefore not the dome but the **signed distance to
+the organoid boundary**, which works in both cases.
+
+## One confound worth knowing about
+
+Median signed distance depends on how much of the field the territory covers. When
+the territory fills the frame, every point is inside it by construction and the
+measure reports confluence rather than infiltration. Measured across the 27
+T-cell wells, territory fraction and median distance correlate at Spearman
+ρ = −0.50 (p = 0.008), and four of the six PDA+MAC wells have a territory covering
+95 % of the field. Before this was caught, that group showed "deep infiltration"
+at a median of −252 µm and passed BH correction at q = 0.049. It was an artefact.
+
+Figure 3 on the group page now excludes wells whose territory covers more than
+70 % of the field, and states the correlation and the excluded wells in its
+caption. Enrichment (Figure 1) is unaffected — it is a density ratio and does not
+carry this dependence.
+
+## Units
+
+| quantity | unit | what it rests on |
+|---|---|---|
+| enrichment, shares, ratios, AUC, Cliff's δ | dimensionless | **nothing** |
+| pixel and voxel counts | count | **nothing** |
+| area (mm², µm²), distance (µm) | µm-derived | 2.798 µm/px — from the instrument's field label, **not verified** |
+| ≈ T-cell number | cells | the calibration above |
+| signal volume | µm²·layer | × the z step gives µm³ |
+| depth | z layer index | the z step is in no file |
+
+`INC_UM_PER_PX=... python3 atlas/build.py --pages` changes the pixel size without
+repeating the measurement.
+
+### The z step is genuinely absent
+
+The TIFF tags carry no optical field at all (`XResolution` is a constant 72 dpi
+placeholder; there is nothing beyond `Software`). The plate XML contains **zero**
+occurrences of *z*, *step*, *objective*, *plane*, *focus* or *micron* — it records
+only well contents and seeding densities.
+
+So the XY axes in the 3D scene are metric and carry a scale bar, while the **z
+axis is ordinal**: layers are drawn evenly spaced, labelled by index, with no
+micron claim. The z axis deliberately carries no scale bar — the asymmetry is the
+point. Note also that z00 is not an absolute height: focus is set per well, so
+compare the *shape* of a depth distribution between wells, not the layer number.
+
+If the value turns up in the acquisition protocol, one multiplication converts
+every volume to µm³.
+
+## The channel colours were checked
+
+The conventional green/orange/red fluorescence triple is not used. Measured: for a
+red-blind reader green and orange separate by ΔE 3.2 against a floor of 6.0, and
+orange and red separate by only ΔE 7.1 even in normal vision, against a floor of
+15.0. About 8 % of male readers could not tell the tumour from the T cells. The
+triple used here passes every threshold in both light and dark
+(`python3 atlas/palette_check.py`). Colour is still never the only carrier: every
+series is directly labelled and every figure has a table.
+
+## Files
+
+| | |
+|---|---|
+| `calib.py` | the signal-to-cell calibration, its validation tests, and the rejected alternatives |
+| `measure.py` | the 3D measurement per well × timepoint; thresholds taken verbatim from `analysis/extract.py` |
+| `build.py` | runs the measurement, derives the reported quantities, writes the pages |
+| `groups.py` | across-well comparison and statistics |
+| `figures.py` | the matplotlib figures for the group page |
+| `check.py` | full-resolution segmentation evidence pages |
+| `thumbs.py` | the evidence thumbnails embedded in each well page |
+| `page.py` | HTML generation — no number is computed here, only layout and wording |
+| `theme.py`, `palette_check.py` | colours, and the colour-vision check |
+| `selftest.py` | checks the generated pages, and the measurement against `analysis/` |
+| `shoot.py` | headless screenshots and the README animations |
 | `templates/` | `app.css`, `scene.js` (WebGL), `figs.js`, `groups.js`, `well.js`, `check.js`, `index.js` |
-| `cache/` | ölçüm ve küçük resim önbelleği — silinebilir, yeniden üretilir |
-| `site/` | çıktı |
+| `cache/` | measurement and thumbnail cache — deletable, regenerated |
+| `site/` | output |
 
-### `analysis/` ile ilişkisi
+### Relationship to `analysis/`
 
-Eşikler, brightfield maskesi ve bant kenarları oradan birebir alınıyor, dolayısıyla
-buradaki sayılar `analysis/out/` altındaki analizlerle aynı tanımı kullanıyor.
-`selftest.py --vs-analysis` bunu her seferinde denetliyor: 1144 kuyu×zaman örneğinin
-tamamında alan oranı, teritorya ve zenginleşme birebir eşit olmak zorunda. Bu
-kontrol bir kez gerçek bir hata yakaladı — zenginleşme, oran yuvarlandıktan sonra
-hesaplanıyordu ve küçük oranlarda %60'ı aşan bağıl hata veriyordu.
+Thresholds, the brightfield mask and the band edges are taken verbatim from
+`analysis/extract.py`, so the numbers here use the same definitions as the
+analyses in `analysis/out/`. `selftest.py --vs-analysis` checks this on every run:
+across all 1144 well × timepoint samples, area fraction, territory and enrichment
+must be identical. That check caught a real bug once — enrichment was being
+computed after the ratio had been rounded, which produced relative errors above
+60 % at small ratios.
 
-Atlas o analizlerin yerine geçmiyor. Onlar plaka geneli karşılaştırma ve istatistik
-yapıyor; atlas tek kuyuyu uzamsal olarak açıyor ve figürleri dergiye hazır biçimde
-üretiyor.
+The atlas does not replace those analyses. They do plate-wide comparison and
+statistics; the atlas opens one well in space and produces the figures in a form
+that can go into a manuscript.
 
-## Bu atlasın yanıtlayamadıkları
+## What this atlas cannot answer
 
-- **Makrofaj ve CAF nerede.** Floresan işaretleyicileri yok; görüntüde tümör
-  hücrelerinden ayırt edilemiyorlar. Hangi kuyuda oldukları yalnızca plaka
-  haritasından biliniyor.
-- **Tümör hücre sayısı.** Yukarıda anlatıldı.
-- **Mutlak derinlik ve µm³ hacim.** z adımı kayıtlı değil.
-- **İnce 3B yapı.** 4× objektifin (NA ≈ 0,13) eksenel çözünürlüğü düşük; beklenen
-  şey derinlik dilimleri. Her düzlemde odak dışı sis var, dekonvolüsyon
-  uygulanmıyor.
+- **Where the macrophages and CAFs are.** No fluorescent label; indistinguishable
+  from tumour cells in the image. Which wells contain them is known only from the
+  plate map.
+- **Tumour cell numbers.** See above.
+- **Absolute depth and µm³ volumes.** The z step is not recorded.
+- **Fine 3D structure.** At 4× (NA ≈ 0.13) the axial resolution is low; expect
+  depth slabs. Every plane carries out-of-focus haze and no deconvolution is
+  applied.

@@ -292,9 +292,11 @@ def main() -> None:
         # Grup karşılaştırmaları tüm kuyuları görmek zorunda; kısmi bir ölçümle
         # üretilirse istatistik yanıltıcı olur.
         if len(built) >= len(imaged_wells()):
+            import figures
             import groups
             g = groups.build()
-            (SITE / "groups.html").write_text(P.groups_page(g), encoding="utf-8")
+            (SITE / "groups.html").write_text(
+                P.groups_page(g, figures.build_all(g)), encoding="utf-8")
             print(f"[sayfa] grup karşılaştırmaları: {g['n_wells']} kuyu "
                   f"({g['n_excluded']} QC dışı)")
         else:

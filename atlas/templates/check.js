@@ -14,6 +14,14 @@
 
   const scene = new SCENE.Scene($("#scene"), {
     vox_um: V.voxel_um, colors: T.scene, terrColor: T.terrScene,
+    // In overlay mode the photograph has to follow zoom and pan exactly, or the
+    // check stops being a check the moment anyone scrolls.
+    onView: v => {
+      const o = $("#ovl");
+      if (o && !o.hidden)
+        o.style.transform =
+          `translate(${scene.px}px, ${scene.py}px) scale(${v.zoom})`;
+    },
   });
   if (V && V.vox) {
     scene.load(0, { vox: V.vox, terr_map: V.terr_map, terr_shape: V.terr_shape,
@@ -23,6 +31,8 @@
   function paint() {
     const outline = $("#outline").checked;
     const bf = $("#showbf").checked;
+    const over = $("#overlay").checked;
+    const cum = $("#stack").value === "cum";
     const img = $("#shot");
     if (bf) {
       img.src = outline ? C.bf.over : C.bf.raw;
@@ -32,10 +42,12 @@
         `${fmt(C.bf.terr_frac * 100, 0)} % of the field. This mask defines ` +
         "“inside the organoid” for every distance measurement in the atlas.";
     } else {
-      img.src = outline ? C.over[z] : C.raw[z];
+      img.src = cum && !outline ? C.cum[z] : (outline ? C.over[z] : C.raw[z]);
       const s = C.stats[z];
       $("#shotcap").innerHTML =
-        `Layer <b>${zpad(z)}</b> of ${C.nz}. Above threshold in this plane: ` +
+        (cum ? `Layers <b>${zpad(0)}–${zpad(z)}</b> of ${C.nz}, maximum projection. `
+           + "Above threshold in the topmost plane: "
+           : `Layer <b>${zpad(z)}</b> of ${C.nz}. Above threshold in this plane: `) +
         `tumour ${fmt(s.green.mm2, 4)} mm², T cells ${fmt(s.orange.mm2, 4)} mm², ` +
         `dead cells ${fmt(s.nir.mm2, 5)} mm². Scale: 1 displayed pixel = ` +
         `${fmt(C.um_per_px, 2)} µm.`;
@@ -43,7 +55,43 @@
     $("#zlabel").textContent = bf ? "brightfield (single plane)"
                                   : `layer ${zpad(z)} of ${C.nz}`;
     $("#z").disabled = bf;
-    scene.setSlice(bf ? 0 : z, bf ? C.nz - 1 : z, bf ? 0.6 : 0.35);
+    // "everything below" keeps layers 0..z lit, so the reconstruction shows the
+    // same accumulation the photograph does.
+    scene.setSlice(bf ? 0 : (cum ? 0 : z), bf ? C.nz - 1 : z, bf ? 0.6 : 0.35);
+
+    /* Overlay mode: the camera is locked straight down and the projection scaled
+       so one voxel covers exactly the pixels it came from, then the photograph is
+       blended on top. Misregistration would show as dots sitting beside their
+       blobs rather than on them. */
+    $("#grid").classList.toggle("overlay", over);
+    $("#leftfig").hidden = over;
+    $("#mixwrap").hidden = !over;
+    $("#ovl").hidden = !over;
+    $("#scenehint").hidden = over;
+    scene.setExact(over);
+    if (over) {
+      /* Always the raw plane here, never the outlined one: the outline is drawn
+         from the same mask as the voxels, so comparing the reconstruction with it
+         would be circular. The test is whether the voxels land on the stain. */
+      $("#ovl").src = bf ? C.bf.raw : (cum ? C.cum[z] : C.raw[z]);
+      $("#ovl").style.opacity = (+$("#mix").value / 100).toFixed(2);
+      $("#ovl").style.transform =
+        `translate(${scene.px}px, ${scene.py}px) scale(${scene.zoom})`;
+      $("#scenecap").innerHTML =
+        "<b>Overlay.</b> Straight top-down view, scaled so one voxel covers the " +
+        "pixels it was measured from, with the photograph blended on top " +
+        `(${$("#mix").value} % photo). The photograph is shown <b>without</b> the ` +
+        "mask outline on purpose — the outline comes from the same mask as the " +
+        "voxels, so comparing the two would be circular. What is tested is " +
+        "whether the voxels land on the stain itself. Sweep the slider: the dots " +
+        "should disappear into the bright patches, not slide across them. Only " +
+        "XY placement is tested; the z axis carries no micron scale.";
+    } else {
+      $("#scenecap").innerHTML =
+        "The same layer isolated in the voxel reconstruction. Every dot is one " +
+        "5.6 µm voxel above threshold — one dot here for a patch that crossed the " +
+        "threshold on the left.";
+    }
     table();
   }
 
@@ -75,6 +123,12 @@
   $("#z").addEventListener("input", e => { z = +e.target.value; paint(); });
   $("#outline").addEventListener("change", paint);
   $("#showbf").addEventListener("change", paint);
+  $("#overlay").addEventListener("change", paint);
+  $("#stack").addEventListener("change", paint);
+  $("#mix").addEventListener("input", e => {
+    $("#mixlabel").textContent = e.target.value + " %";
+    paint();
+  });
   $("#playz").addEventListener("click", () => {
     if (playing) { clearInterval(playing); playing = null; $("#playz").textContent = "▶";
                    return; }
@@ -100,5 +154,24 @@
       b.textContent = box.classList.toggle("on") ? "hide table" : "table";
     });
 
+  window.SHOOT = {
+    z(n) { z = Math.max(0, Math.min(C.nz - 1, n)); $("#z").value = z; paint();
+           scene.draw(); },
+    outline(on) { $("#outline").checked = !!on; paint(); },
+    stack(mode) { $("#stack").value = mode; paint(); scene.draw(); },
+    overlay(on, mix) {
+      $("#overlay").checked = !!on;
+      if (mix != null) { $("#mix").value = mix; $("#mixlabel").textContent = mix + " %"; }
+      paint(); scene.draw();
+    },
+  };
+  function runShootHook() {
+    const m = /#shoot=(.*)$/.exec(location.hash);
+    if (!m) return;
+    try { new Function(decodeURIComponent(m[1]))(); scene.draw(); }
+    catch (err) { console.error("shoot hook", err); }
+  }
+
   paint();
+  setTimeout(runShootHook, 400);
 })();

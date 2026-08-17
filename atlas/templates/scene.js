@@ -59,12 +59,13 @@ const SCENE = (() => {
       gl_PointSize = vis > 0.0 ? psize : 0.0;
     }`;
   const FS = `
-    precision mediump float; uniform vec3 col; varying float vw;
+    precision mediump float; uniform vec3 col; uniform float boost;
+    varying float vw;
     void main() {
       vec2 d = gl_PointCoord - vec2(0.5);
       float r = dot(d, d);
       if (r > 0.25 || vw <= 0.0) discard;
-      float a = vw * (1.0 - r * 2.4);
+      float a = min(1.0, vw * (1.0 - r * 2.4) * 0.42 * boost);
       gl_FragColor = vec4(col * a, a);
     }`;
 
@@ -98,9 +99,9 @@ const SCENE = (() => {
   // ================================================================== Scene
   class Scene {
     constructor(el, cfg) {
-      this.el = el;
+      this.host = el;
       this.cfg = cfg;                  // {vox_um, colors, terrColor, onView}
-      this.home = { az: -35, el: 24, zoom: 1, px: 0, py: 0 };
+      this.home = { az: -35, elev: 24, zoom: 1, px: 0, py: 0 };
       Object.assign(this, this.home);
       this.on = { green: true, orange: true, nir: true, terr: true };
       this.slice = { lo: 0, hi: 99, soft: 0.6 };
@@ -119,7 +120,7 @@ const SCENE = (() => {
       if (!gl) return this.fallback();
       this.prog = program(gl);
       this.loc = {};
-      for (const n of ["rot", "scale", "pan", "psize", "col", "slice"])
+      for (const n of ["rot", "scale", "pan", "psize", "col", "slice", "boost"])
         this.loc[n] = gl.getUniformLocation(this.prog, n);
       this.attr = { pos: gl.getAttribLocation(this.prog, "pos"),
                     layer: gl.getAttribLocation(this.prog, "layer"),
@@ -138,7 +139,7 @@ const SCENE = (() => {
     }
 
     fallback() {
-      this.el.innerHTML = '<div style="color:#9aa3b2;font-size:13px;padding:24px;' +
+      this.host.innerHTML = '<div style="color:#9aa3b2;font-size:13px;padding:24px;' +
         'text-align:center">This browser has no WebGL — the 3D scene cannot be ' +
         'drawn. The figures below are unaffected.</div>';
     }
@@ -151,7 +152,7 @@ const SCENE = (() => {
        be viewed from below as well as from directly above. */
     bindInput() {
       let mode = null, px = 0, py = 0;
-      const el = this.el;
+      const el = this.host;
 
       el.addEventListener("pointerdown", e => {
         mode = (e.button === 1 || e.shiftKey) ? "pan" : "orbit";
@@ -167,7 +168,7 @@ const SCENE = (() => {
         if (mode === "orbit") {
           // drag right → the near face swings right; drag down → look from above
           this.az -= dx * 0.4;
-          this.el = Math.max(-90, Math.min(90, this.el + dy * 0.34));
+          this.elev = Math.max(-90, Math.min(90, this.elev + dy * 0.34));
         } else {
           this.px += dx; this.py += dy;
         }
@@ -209,9 +210,9 @@ const SCENE = (() => {
     view(name) {
       const V = {
         home: this.home,
-        top: { az: 0, el: 90 }, bottom: { az: 0, el: -90 },
-        front: { az: 0, el: 0 }, back: { az: 180, el: 0 },
-        right: { az: 90, el: 0 }, left: { az: -90, el: 0 },
+        top: { az: 0, elev: 90 }, bottom: { az: 0, elev: -90 },
+        front: { az: 0, elev: 0 }, back: { az: 180, elev: 0 },
+        right: { az: 90, elev: 0 }, left: { az: -90, elev: 0 },
       }[name] || this.home;
       Object.assign(this, { px: 0, py: 0, zoom: 1 }, V);
       this.changed();
@@ -219,7 +220,7 @@ const SCENE = (() => {
 
     changed() {
       this.dirty = true;
-      if (this.cfg.onView) this.cfg.onView({ az: this.az, el: this.el, zoom: this.zoom });
+      if (this.cfg.onView) this.cfg.onView({ az: this.az, elev: this.elev, zoom: this.zoom });
     }
 
     setSlice(lo, hi, soft) {
@@ -229,7 +230,7 @@ const SCENE = (() => {
     toggle(ch, v) { this.on[ch] = v; this.dirty = true; }
 
     resize() {
-      const r = this.el.getBoundingClientRect();
+      const r = this.host.getBoundingClientRect();
       // The canvas caps device pixel ratio at 2; the screen scale must use the
       // same capped value or the scene overflows on 3× displays.
       const dpr = this.dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -306,9 +307,21 @@ const SCENE = (() => {
 
     show(rec) { this.cur = rec; this.dirty = true; }
 
+    /* Normal kipte sahne kutuya boşluk bırakarak sığar. `exact` kipinde model
+       genişliği kutu genişliğine **birebir** eşlenir ve kamera tam tepeden
+       kilitlenir: o zaman izdüşüm, ham düzlemin kendisiyle aynı piksel
+       eşlemesine sahip olur ve ikisi üst üste bindirilebilir. Hizalama yanlışsa
+       noktalar lekelerin yanına düşer ve hata gözle görünür. */
     metrics(w, h) {
       const e = this.extent;
+      if (this.exact) return { s: (w / e.x) * this.zoom };
       return { s: (Math.min(w, h) / (Math.max(e.x, e.y) * 1.2)) * this.zoom };
+    }
+
+    setExact(on) {
+      this.exact = !!on;
+      if (on) { this.az = 0; this.elev = 90; this.px = 0; this.py = 0; this.zoom = 1; }
+      this.dirty = true;
     }
 
     // ------------------------------------------------------------------ draw
@@ -326,13 +339,16 @@ const SCENE = (() => {
 
       const { s } = this.metrics(W / dpr, H / dpr);
       const ca = Math.cos(this.az * DEG), sa = Math.sin(this.az * DEG);
-      const ce = Math.cos(this.el * DEG), se = Math.sin(this.el * DEG);
+      const ce = Math.cos(this.elev * DEG), se = Math.sin(this.elev * DEG);
       gl.useProgram(this.prog);
       gl.uniformMatrix3fv(this.loc.rot, false, new Float32Array(
         [ca, sa * se, sa * ce, -sa, ca * se, ca * ce, 0, -ce, se]));
       gl.uniform2f(this.loc.scale, 2 * s * dpr / W, 2 * s * dpr / H);
       gl.uniform2f(this.loc.pan, 2 * this.px * dpr / W, -2 * this.py * dpr / H);
       gl.uniform3f(this.loc.slice, this.slice.lo, this.slice.hi, this.slice.soft);
+      // Bindirme kipinde tek bir katman çiziliyor ve noktalar ekranda ~1 piksel;
+      // hizalamayı gözle yargılayabilmek için daha parlak ve daha iri çizilirler.
+      gl.uniform1f(this.loc.boost, this.exact ? 3.6 : 1.0);
 
       const A = this.attr;
       for (const ch of ["terr", "green", "nir", "orange"]) {
@@ -345,7 +361,9 @@ const SCENE = (() => {
         gl.vertexAttribPointer(A.layer, 1, gl.FLOAT, false, 20, 12);
         gl.enableVertexAttribArray(A.w);
         gl.vertexAttribPointer(A.w, 1, gl.FLOAT, false, 20, 16);
-        gl.uniform1f(this.loc.psize, Math.max(1.3, c.size * s * dpr * 1.3));
+        gl.uniform1f(this.loc.psize, this.exact
+          ? Math.max(3.2, c.size * s * dpr * 2.6)
+          : Math.max(1.3, c.size * s * dpr * 1.3));
         const col = hex2rgb(c.base ? this.cfg.terrColor : this.cfg.colors[ch]);
         gl.uniform3f(this.loc.col, col[0], col[1], col[2]);
         gl.drawArrays(gl.POINTS, 0, c.n);
@@ -359,7 +377,7 @@ const SCENE = (() => {
       while (this.svg.firstChild) this.svg.removeChild(this.svg.firstChild);
       if (!this.extent) return;
       const { s } = this.metrics(this.w, this.h);
-      const P = projector(this.az, this.el);
+      const P = projector(this.az, this.elev);
       const cx = this.w / 2 + this.px, cy = this.h / 2 + this.py;
       const to = (x, y, z) => { const p = P(x, y, z); return [cx + p[0] * s, cy + p[1] * s]; };
       const mk = (t, a) => { const e = document.createElementNS(ns, t);
@@ -374,6 +392,20 @@ const SCENE = (() => {
 
       const ex = this.extent, hx = ex.x / 2, hy = ex.y / 2;
       const zb = this.cur ? this.cur.zb : -ex.z / 2;
+
+      if (this.exact) {
+        // Üst üste bindirme kipinde tek gereken ölçek çubuğu; kutu çerçevesi ve
+        // katman merdiveni fotoğrafın üstünü kapatırdı.
+        const t = ex.x * 0.25;
+        const n = [100, 200, 250, 500, 1000].reduce(
+          (a, b) => Math.abs(b - t) < Math.abs(a - t) ? b : a);
+        const a1 = to(hx - n, hy * 0.93, 0), b1 = to(hx * 0.97, hy * 0.93, 0);
+        line([a1[0], a1[1]], [a1[0] + (b1[0] - a1[0]), a1[1]],
+             { stroke: "#e6e9ef", "stroke-width": 2.4 });
+        txt([(a1[0] + b1[0]) / 2, a1[1] - 6], `${n} µm`,
+            { "text-anchor": "middle", fill: "#e6e9ef", "font-size": 11 });
+        return;
+      }
 
       // footprint frame
       const c = [[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]].map(p => to(p[0], p[1], zb));
@@ -446,7 +478,7 @@ const SCENE = (() => {
     async panel(scale = 2) {
       const views = [["top", "top (XY)"], ["front", "front (XZ)"],
                      ["right", "right (YZ)"], ["home", "oblique"]];
-      const keep = { az: this.az, el: this.el, zoom: this.zoom, px: this.px, py: this.py };
+      const keep = { az: this.az, elev: this.elev, zoom: this.zoom, px: this.px, py: this.py };
       const urls = [];
       for (const [v] of views) { this.view(v); urls.push(this.png(scale)); }
       Object.assign(this, keep); this.dirty = true;
